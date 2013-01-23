@@ -2,6 +2,7 @@
 # The code REQUIRES: 12779
 #          benefits from: 12772, 11358, 12640, 10281
 # 
+import sage.all
 
 import os
 
@@ -137,7 +138,7 @@ class Filenames(object):
         for Nki in os.listdir(self._data):
             z = Nki.split('-')
             if len(z) == 3:
-                N, k, i = parse_Nki(z)
+                N, k, i = parse_Nki(Nki)
                 newforms = [x for x in os.listdir(os.path.join(self._data, Nki)) if x.isdigit()]
                 if len(newforms) == 0:
                     # maybe nothing computed?
