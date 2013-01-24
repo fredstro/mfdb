@@ -1,0 +1,24 @@
+Comments for the current developers: Stephan E and Fredrik S:
+
+
+Goals: 
+1) Save data in independent format (txt,string etc.; no Sage objects!)
+2) Store data to be displayed in intermediate database
+
+Todo:
+0) Understand the design decisions of previous author.
+1) Be able to recreate objects from previous data
+2) Convert these objects to the new format
+3) 
+
+
+## Example code for generating data
+import mfdb.compute
+reload(mfdb.compute)
+mfdb.compute.filenames.update_known_db()
+mfdb.compute.compute_ambient_spaces([1..2], [2..100], 'all', 12)
+mfdb.compute.compute_decomposition_ranges([1..2], [2..100],'all', 12)
+mfdb.compute.compute_aplists_ranges([1..2], [2..100], 'all', 12, 100)
+
+
+## Example for reconstructing data
