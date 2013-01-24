@@ -363,7 +363,8 @@ def compute_ambient_space(N, k, i):
     t = cputime()
     M = ModularSymbols(eps, weight=k, sign=1)
     tm = cputime(t)
-    save(M, filename)
+    save_ambient_space(M,i)
+    #save(M, filename)
     meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
     save(meta, filenames.meta(filename))
 
@@ -406,14 +407,13 @@ def ambient_to_dict(M, i=None):
             'mod2term':M._mod2term}
 
 def dict_to_ambient(modsym):
-
+    #print "WWEWEW=",modsym
     N,k,i = modsym['space']
     eps   = modsym['eps']
     manin = modsym['manin']
     basis = modsym['basis']
     rels  = modsym['rels']
     mod2term  = modsym['mod2term']
-    
     F = rels.base_ring()
     if i == 0:
         eps = trivial_character(N)
@@ -483,7 +483,9 @@ def delete_all_M_after_conversion():
 
 def load_ambient_space(N, k, i):
     fname = filenames.ambient(N, k, i, makedir=False)
+    print "fname=",fname
     if os.path.exists(fname):
+        print "returning!"
         return dict_to_ambient(load(fname))
     fname = filenames.M(N, k, i, makedir=False)
     if os.path.exists(fname):
@@ -544,9 +546,9 @@ def compute_decompositions(N, k, i):
 
     if os.path.exists(filenames.factor(N, k, i, 0, makedir=False)):
         return
-    
     t = cputime()
     M = load_ambient_space(N, k, i)
+    print "M"
     D = M.cuspidal_subspace().new_subspace().decomposition()
     for d in range(len(D)):
         f = filenames.factor_basis_matrix(N, k, i, d)
