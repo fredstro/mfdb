@@ -185,7 +185,7 @@ class Filenames(object):
 
         # 2. iterate over known 5-tuples inserting them in db
         for t in self.find_known():
-            print t
+            #print t
             cursor.execute("INSERT INTO known VALUES(?,?,?,?,?)", t)
 
         db.commit()

@@ -195,10 +195,17 @@ class ObjType_new_simple_modular_symbols_space(ObjTypeBase):
 
 
 #######################
+object_types={}
+for k in globals().keys():
+    if k.startswith('ObjType_'):
+        o1 = globals()[k]
+        o2 = o1(k[len('ObjType_'):])
+        object_types[o2.name]=o2
 
-object_types = dict([(o.name, o) for o in
-                     [o(k[len('ObjType_'):]) for k, o in
-                                globals().iteritems() if k.startswith('ObjType_')]])
+#object_types = dict([(o.name, o) for o in
+#                     [o(k[len('ObjType_'):]) for k, o in
+#                      globals().iteritems() if #k.startswith('ObjType_')]])
+
 
 def ObjType(o):
     """
