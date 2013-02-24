@@ -43,7 +43,7 @@ class WDB(object):
     def __init__(self,dir='data'):
         #self._mfdb = mfdb
         #self._compute = mfdb.compute
-        self._db = Filenames(dir)
+        self._db = FilenamesMFDB(dir)
         self._db.update_known_db()
         
     def _is_valid_sql(self):
@@ -113,13 +113,15 @@ class WDB(object):
                 for Md in l:
                     if not isinstance(Md,dict):
                         raise ValueError,"Need to have a dict here!"
-                    M = compute.dict_to_ambient(Md)
+                    M = self._db.dict_to_ambient(Md)
                     ##  M is an ambient space
+                    res0['ambient_dict']=Md
                     res0['ambient']=M
                     res0['num_orbits']=numorbits
                     res0['orbits']=[]
                     for d in range(numorbits):
-                        A = compute.load_factor(N,k,i,d,M)
+                        A = self._db.load_factor(N,k,i,d,M)
+                        
                         res0['orbits'].append(A)
                 res.append(res0)
             #return res0
@@ -132,14 +134,14 @@ class WDB(object):
         Fetch tuples (B,Bd,v,nz)
         """        
         res = {}
-        for N,k,i,dmax,aps in db.known(self._make_query(N,k,i)):
+        for N,k,i,dmax,aps in self._db.known(self._make_query(N,k,i)):
             l=[]
             res[(N,k,i)]={}
             for d in range(dmax):
-                B = load(db.factor_basis_matrix(N, k, i, d))
-                Bd =load(db.factor_dual_basis_matrix(N, k, i, d))
-                v = load(db.factor_dual_eigenvector(N, k, i, d))
-                nz =load(db.factor_eigen_nonzero(N, k, i, d))
+                B = load(self._db.factor_basis_matrix(N, k, i, d))
+                Bd =load(self._db.factor_dual_basis_matrix(N, k, i, d))
+                v = load(self._db.factor_dual_eigenvector(N, k, i, d))
+                nz =load(self._db.factor_eigen_nonzero(N, k, i, d))
                 res[(N,k,i)][d]={'B':B,'Bd':Bd,'v':v,'nz':nz}
         return res
 
@@ -173,7 +175,8 @@ class WDB(object):
                     s += "\n"+str(meta)
                     res[(N,k,i)][j]=s
                 else:
-                    res[(N,k,i)][j]={(0,100):(s,meta)}
+                    #aplist*v
+                    res[(N,k,i)][j]={(0,100):(aplist*v,meta)}
                 if all_coeffs:
                     cdir = self._db.factor(N,k,i,j)
                     list_of_files = glob.glob('{dir}/aplist-{rb}-{rb}.sobj'.format(dir=cdir,rb=rb))
@@ -216,8 +219,7 @@ class WDB(object):
         
     def _format_aps(self,aplist,v):
         r"""
-        String representation of the ap's
-        """
+        String representation of the ap'"""
         K = v.parent().base_ring()
         if hasattr(K, 'defining_polynomial'):
             s = "{0}".format(K.defining_polynomial().list())

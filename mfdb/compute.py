@@ -332,429 +332,445 @@ class Filenames(object):
                             
 ################################################    
 
-filenames = Filenames('data')
+#filenames = Filenames('data')
 
 # ambient spaces
 
 # use @fork to avoid any memory leaks
-@fork    
-def compute_ambient_space(N, k, i):
-    if i == 'all':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn:
-                compute_ambient_space(N,k,j)
-        return
-
-    if i == 'quadratic':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn and g[0].order()==2:
-                compute_ambient_space(N,k,j)
-        return
-
-    filename = filenames.ambient(N, k, i)
-    if os.path.exists(filename):
-        return
-
-    eps = character(N, i)
-    t = cputime()
-    M = ModularSymbols(eps, weight=k, sign=1)
-    tm = cputime(t)
-    save_ambient_space(M,i)
-    #save(M, filename)
-    meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
-    save(meta, filenames.meta(filename))
-
-def rangify(v):
-    return [v] if isinstance(v, (int, long, Integer, str)) else v
-
-def compute_ambient_spaces(Nrange, krange, irange, ncpu):
-    @parallel(ncpu)
-    def f(N,k,i):
-        compute_ambient_space(N,k,i)
-
-    v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
-    for X in f(v):
-        print X
-    
-def ambient_to_dict(M, i=None):
-    """
-    Data structure of dictionary that is created:
-    
-        - 'space': (N, k, i), the level, weight, and and integer
-          that specifies character in terms of table; all Python ints
-        - 'eps': (character) list of images of gens in QQ or cyclo
-          field; this redundantly specifies the character
-        - 'manin': (manin_gens) list of 2-tuples or 3-tuples of
-          integers (all the Manin symbols)
-        - 'basis': list of integers -- index into above list of Manin symbols
-        - 'rels': relation matrix (manin_gens_to_basis) -- a sparse
-          matrix over a field (QQ or cyclotomic)
-        - 'mod2term': list of pairs (n, c), such that the ith element
-          of the list is equivalent via 2-term relations only
-          to c times the n-th basis Manin symbol; these
-    """
-    if i is None:
-        i = character_to_int(M.character())
-    return {'space':(int(M.level()), int(M.weight()), int(i)),
-            'eps':list(M.character().values_on_gens()),
-            'manin':[(t.i,t.u,t.v) for t in M._manin_generators],
-            'basis':M._manin_basis,
-            'rels':M._manin_gens_to_basis,
-            'mod2term':M._mod2term}
-
-def dict_to_ambient(modsym):
-    #print "WWEWEW=",modsym
-    N,k,i = modsym['space']
-    eps   = modsym['eps']
-    manin = modsym['manin']
-    basis = modsym['basis']
-    rels  = modsym['rels']
-    mod2term  = modsym['mod2term']
-    F = rels.base_ring()
-    if i == 0:
-        eps = trivial_character(N)
-    else:
-        eps = DirichletGroup(N, F)(eps)
-        
-    from sage.modular.modsym.manin_symbols import ManinSymbolList, ManinSymbol
-    manin_symbol_list = ManinSymbolList(k, manin)
-    
-    def custom_init(M):
-        # reinitialize the list of Manin symbols with ours, which may be
-        # ordered differently someday:
-        syms = M.manin_symbols()
-        ManinSymbolList.__init__(syms, k, manin_symbol_list)
-        
-        M._manin_generators = [ManinSymbol(syms, x) for x in manin]
-        M._manin_basis = basis
-        M._manin_gens_to_basis = rels
-        M._mod2term = mod2term
-        return M
-
-    return ModularSymbols(eps, k, sign=1, custom_init=custom_init, use_cache=False)
-
-def save_ambient_space(M, i):
-    N = M.level()
-    k = M.weight()
-    fname = filenames.ambient(N, k, i, makedir=True)
-    if os.path.exists(fname):
-        print "%s already exists; not recreating"%fname
-        return 
-    print "Creating ", fname
-    save(ambient_to_dict(M, i), fname)
-
-def load_M(N, k, i):
-    return load(filenames.M(N, k, i, makedir=False))
-
-def convert_M_to_ambient(N, k, i):
-    save_ambient_space(load_M(N,k,i), i)
-
-def convert_all_M_to_ambient():
-    d = filenames._data
-    for X in os.listdir(d):
-        p = os.path.join(d, X)
-        if os.path.isdir(p):
-            f = set(os.listdir(p))
-            if 'M.sobj' in f and 'ambient.sobj' not in f:
-                print X
-                try:
-                    convert_M_to_ambient(*parse_Nki(X))
-                except:
-                    print "ERROR!"
-
-def delete_all_M_after_conversion():
-    d = filenames._data
-    for X in os.listdir(d):
-        p = os.path.join(d, X)
-        if os.path.isdir(p):
-            f = set(os.listdir(p))
-            if 'M.sobj' in f and 'ambient.sobj' in f:
-                print X
-                os.unlink(os.path.join(p, 'M.sobj'))
-
-    
-# old version -- doesn't require trac 12779.
-#def load_ambient_space(N, k, i):
-#    return load(filenames.M(N, k, i, makedir=False))
-
-def load_ambient_space(N, k, i):
-    fname = filenames.ambient(N, k, i, makedir=False)
-    print "fname=",fname
-    if os.path.exists(fname):
-        print "returning!"
-        return dict_to_ambient(load(fname))
-    fname = filenames.M(N, k, i, makedir=False)
-    if os.path.exists(fname):
-        return load(fname)
-    raise ValueError, "ambient space (%s,%s,%s) not yet computed"%(N,k,i)
-
-def load_factor(N, k, i, d, M=None):
-    import sage.modular.modsym.subspace
-    if M is None:
-        M = load_ambient_space(N, k, i)
-    f = filenames.factor(N, k, i, d, makedir=False)
-    if not os.path.exists(f):
-        raise RuntimeError, "no such factor (%s,%s,%s,%s)"%(N,k,i,d)
-    B = load(filenames.factor_basis_matrix(N, k, i, d))
-    Bd = load(filenames.factor_dual_basis_matrix(N, k, i, d))
-    v = load(filenames.factor_dual_eigenvector(N, k, i, d))
-    nz = load(filenames.factor_eigen_nonzero(N, k, i, d))
-    B._cache['in_echelon_form'] = True
-    Bd._cache['in_echelon_form'] = True
-    # These two lines are scary, obviously, since they depend on
-    # private attributes of modular symbols.
-    A = sage.modular.modsym.subspace.ModularSymbolsSubspace(M, B.row_module(), Bd.row_module(), check=False)
-    A._HeckeModule_free_module__dual_eigenvector = {('a',nz):(v,False)}
-    A._is_simple = True
-    A._HeckeModule_free_module__decomposition = {(None,True):Sequence([A], check=False)}
-    return A
+### A more specialized class
 
 
-# decompositions
+class FilenamesMFDB(Filenames):
+    def __init__(self,data):
+        super(FilenamesMFDB,self).__init__(data)        
 
-@fork    
-def compute_decompositions(N, k, i):
-    if i == 'all':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn:
-                compute_decompositions(N,k,j)
-        return
 
-    if i == 'quadratic':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn and g[0].order()==2:
-                compute_decompositions(N,k,j)
-        return
+    @fork    
+    def compute_ambient_space(self,N, k, i):
+        if i == 'all':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn:
+                    self.compute_ambient_space(N,k,j)
+            return
 
-    filename = filenames.ambient(N, k, i)
-    if not os.path.exists(filename):
-        print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
-        return
-        #compute_ambient_space(N, k, i)
-    if not os.path.exists(filename):
-        return 
-    
-    eps = DirichletGroup(N).galois_orbits()[i][0]
+        if i == 'quadratic':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn and g[0].order()==2:
+                    self.compute_ambient_space(N,k,j)
+            return
 
-    if os.path.exists(filenames.factor(N, k, i, 0, makedir=False)):
-        return
-    t = cputime()
-    M = load_ambient_space(N, k, i)
-    print "M"
-    D = M.cuspidal_subspace().new_subspace().decomposition()
-    for d in range(len(D)):
-        f = filenames.factor_basis_matrix(N, k, i, d)
-        if os.path.exists(f):
-            continue
-        A = D[d]
-        B  = A.free_module().basis_matrix()
-        Bd = A.dual_free_module().basis_matrix()
-        v  = A.dual_eigenvector(names='a', lift=False)    # vector over number field
-        nz = A._eigen_nonzero()
-        
-        save(B, filenames.factor_basis_matrix(N, k, i, d))
-        save(Bd, filenames.factor_dual_basis_matrix(N, k, i, d))
-        save(v, filenames.factor_dual_eigenvector(N, k, i, d))
-        save(nz, filenames.factor_eigen_nonzero(N, k, i, d))
-        
-    tm = cputime(t)
-    meta = {'cputime':tm, 'number':len(D), 'version':version()}
-    save(meta, filenames.decomp_meta(N, k, i))
+        filename = self.ambient(N, k, i)
+        if os.path.exists(filename):
+            return
 
-def compute_decomposition_ranges(Nrange, krange, irange, ncpu):
-    @parallel(ncpu)
-    def f(N,k,i):
-        compute_decompositions(N,k,i)
-
-    v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
-    for X in f(v):
-        print X
-
-def atkin_lehner_signs(A):
-    N = A.level()
-    return [A.atkin_lehner_operator(p).matrix()[0,0] for p in prime_divisors(N)]
-
-# atkin_lehner
-@fork    
-def compute_atkin_lehner(N, k, i):
-    filename = filenames.ambient(N, k, i)
-    if not os.path.exists(filename):
-        print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
-        return
-        #compute_ambient_space(N, k, i)
-
-    print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
-    m = filenames.number_of_known_factors(N, k, i)    
-    M = load_ambient_space(N, k, i)
-    for d in range(m):
-        atkin_lehner_file = filenames.factor_atkin_lehner(N, k, i, d, False)
-        if os.path.exists(atkin_lehner_file):
-            print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
-            # already done
-            continue
-        
-        # compute atkin_lehner
-        print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
+        eps = character(N, i)
         t = cputime()
-        A = load_factor(N, k, i, d, M)
-        al = ' '.join(['+' if a > 0 else '-' for a in atkin_lehner_signs(A)])
-        print al
-        open(atkin_lehner_file, 'w').write(al)
+        M = ModularSymbols(eps, weight=k, sign=1)
         tm = cputime(t)
-        meta = {'cputime':tm, 'version':version()}
-        save(meta, filenames.meta(atkin_lehner_file))
+        self.save_ambient_space(M,i)
+        #save(M, filename)
+        meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
+        save(meta, self.meta(filename))
 
-# aplists
-@fork    
-def compute_aplists(N, k, i, *args):
-    if i == 'all':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn:
-                compute_aplists(N,k,j,*args)
-        return
+    def rangify(v):
+        return [v] if isinstance(v, (int, long, Integer, str)) else v
 
-    if i == 'quadratic':
-        G = DirichletGroup(N).galois_orbits()
-        sgn = (-1)**k
-        for j, g in enumerate(G):
-            if g[0](-1) == sgn and g[0].order()==2:
-                compute_aplists(N,k,j,*args)
-        return
+    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
+        @parallel(ncpu)
+        def f(N,k,i):
+            self.compute_ambient_space(N,k,i)
 
-    if len(args) == 0:
-        args = (100, )
+        v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
+        for X in f(v):
+            print X
 
-    filename = filenames.ambient(N, k, i)
-    if not os.path.exists(filename):
-        print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
-        return
-        #compute_ambient_space(N, k, i)
+    def ambient_to_dict(self,M, i=None):
+        """
+        Data structure of dictionary that is created:
 
-    print "computing aplists for (%s,%s,%s)"%(N,k,i)
-        
-    m = filenames.number_of_known_factors(N, k, i)
+            - 'space': (N, k, i), the level, weight, and and integer
+              that specifies character in terms of table; all Python ints
+            - 'eps': (character) list of images of gens in QQ or cyclo
+              field; this redundantly specifies the character
+            - 'manin': (manin_gens) list of 2-tuples or 3-tuples of
+              integers (all the Manin symbols)
+            - 'basis': list of integers -- index into above list of Manin symbols
+            - 'rels': relation matrix (manin_gens_to_basis) -- a sparse
+              matrix over a field (QQ or cyclotomic)
+            - 'mod2term': list of pairs (n, c), such that the ith element
+              of the list is equivalent via 2-term relations only
+              to c times the n-th basis Manin symbol; these
+        """
+        if i is None:
+            i = self.character_to_int(M.character())
+        return {'space':(int(M.level()), int(M.weight()), int(i)),
+                'eps':list(M.character().values_on_gens()),
+                'manin':[(t.i,t.u,t.v) for t in M._manin_generators],
+                'basis':M._manin_basis,
+                'rels':M._manin_gens_to_basis,
+                'mod2term':M._mod2term}
 
-    if m == 0:
-        # nothing to do
-        return
-    
-    M = load_ambient_space(N, k, i)
-    for d in range(m):
-        aplist_file = filenames.factor_aplist(N, k, i, d, False, *args)
-        if os.path.exists(aplist_file):
-            print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
-            # already done
-            continue
-        
-        # compute aplist
-        print "computing aplist(%s) for (%s,%s,%s,%s)"%(args, N,k,i,d)
+    def dict_to_ambient(self,modsym):
+        #print "WWEWEW=",modsym
+        N,k,i = modsym['space']
+        eps   = modsym['eps']
+        manin = modsym['manin']
+        basis = modsym['basis']
+        rels  = modsym['rels']
+        mod2term  = modsym['mod2term']
+        F = rels.base_ring()
+        if i == 0:
+            eps = trivial_character(N)
+        else:
+            eps = DirichletGroup(N, F)(eps)
+
+        from sage.modular.modsym.manin_symbols import ManinSymbolList, ManinSymbol
+        manin_symbol_list = ManinSymbolList(k, manin)
+
+        def custom_init(M):
+            # reinitialize the list of Manin symbols with ours, which may be
+            # ordered differently someday:
+            syms = M.manin_symbols()
+            ManinSymbolList.__init__(syms, k, manin_symbol_list)
+
+            M._manin_generators = [ManinSymbol(syms, x) for x in manin]
+            M._manin_basis = basis
+            M._manin_gens_to_basis = rels
+            M._mod2term = mod2term
+            return M
+
+        return ModularSymbols(eps, k, sign=1, custom_init=custom_init, use_cache=False)
+
+    def save_ambient_space(self,M, i):
+        N = M.level()
+        k = M.weight()
+        fname = self.ambient(N, k, i, makedir=True)
+        if os.path.exists(fname):
+            print "%s already exists; not recreating"%fname
+            return 
+        print "Creating ", fname
+        save(self.ambient_to_dict(M, i), fname)
+
+    def load_M(self,N, k, i):
+        return load(self.M(N, k, i, makedir=False))
+
+    def convert_M_to_ambient(self,N, k, i):
+        self.save_ambient_space(load_M(N,k,i), i)
+
+    def convert_all_M_to_ambient(self):
+        d = self._data
+        for X in os.listdir(d):
+            p = os.path.join(d, X)
+            if os.path.isdir(p):
+                f = set(os.listdir(p))
+                if 'M.sobj' in f and 'ambient.sobj' not in f:
+                    print X
+                    try:
+                        self.convert_M_to_ambient(*parse_Nki(X))
+                    except:
+                        print "ERROR!"
+
+    def delete_all_M_after_conversion(self):
+        d = self._data
+        for X in os.listdir(d):
+            p = os.path.join(d, X)
+            if os.path.isdir(p):
+                f = set(os.listdir(p))
+                if 'M.sobj' in f and 'ambient.sobj' in f:
+                    print X
+                    os.unlink(os.path.join(p, 'M.sobj'))
+
+
+    # old version -- doesn't require trac 12779.
+    #def load_ambient_space(N, k, i):
+    #    return load(filenames.M(N, k, i, makedir=False))
+
+    def load_ambient_space(self,N, k, i):
+        fname = self.ambient(N, k, i, makedir=False)
+        print "fname=",fname
+        if os.path.exists(fname):
+            print "returning!"
+            return dict_to_ambient(load(fname))
+        fname = self.M(N, k, i, makedir=False)
+        if os.path.exists(fname):
+            return load(fname)
+        raise ValueError, "ambient space (%s,%s,%s) not yet computed"%(N,k,i)
+
+    def load_factor(self,N, k, i, d, M=None):
+        import sage.modular.modsym.subspace
+        if M is None:
+            M = self.load_ambient_space(N, k, i)
+        f = self.factor(N, k, i, d, makedir=False)
+        if not os.path.exists(f):
+            raise RuntimeError, "no such factor (%s,%s,%s,%s)"%(N,k,i,d)
+        B = load(self.factor_basis_matrix(N, k, i, d))
+        Bd = load(self.factor_dual_basis_matrix(N, k, i, d))
+        v = load(self.factor_dual_eigenvector(N, k, i, d))
+        nz = load(self.factor_eigen_nonzero(N, k, i, d))
+        B._cache['in_echelon_form'] = True
+        Bd._cache['in_echelon_form'] = True
+        # These two lines are scary, obviously, since they depend on
+        # private attributes of modular symbols.
+        A = sage.modular.modsym.subspace.ModularSymbolsSubspace(M, B.row_module(), Bd.row_module(), check=False)
+        A._HeckeModule_free_module__dual_eigenvector = {('a',nz):(v,False)}
+        A._is_simple = True
+        A._HeckeModule_free_module__decomposition = {(None,True):Sequence([A], check=False)}
+        return A
+
+
+ 
+
+class ComputeMFData(object):
+    r"""
+    Use Williams methods to compute tables of modular forms data
+    """
+    def __init__(self,db):
+        if isinstance(db,str):
+            db = FilenamesMFDB(db)
+        self._db = db  ## Should be instance of, e.g. FilenamesMFDB
+        self._collection = self._db
+   # decompositions
+
+    @fork    
+    def compute_decompositions(self,N, k, i):
+        if i == 'all':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn:
+                    self.compute_decompositions(N,k,j)
+            return
+
+        if i == 'quadratic':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn and g[0].order()==2:
+                    self.compute_decompositions(N,k,j)
+            return
+
+        filename = self_db.ambient(N, k, i)
+        if not os.path.exists(filename):
+            print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
+            return
+            #compute_ambient_space(N, k, i)
+        if not os.path.exists(filename):
+            return 
+
+        eps = DirichletGroup(N).galois_orbits()[i][0]
+
+        if os.path.exists(self._db.factor(N, k, i, 0, makedir=False)):
+            return
         t = cputime()
-        A = load_factor(N, k, i, d, M)
-        aplist, _ = A.compact_system_of_eigenvalues(prime_range(*args), 'a')
-        print aplist, aplist_file
-        save(aplist, aplist_file)
+        M = self._db.load_ambient_space(N, k, i)
+        print "M"
+        D = M.cuspidal_subspace().new_subspace().decomposition()
+        for d in range(len(D)):
+            f = self._db.factor_basis_matrix(N, k, i, d)
+            if os.path.exists(f):
+                continue
+            A = D[d]
+            B  = A.free_module().basis_matrix()
+            Bd = A.dual_free_module().basis_matrix()
+            v  = A.dual_eigenvector(names='a', lift=False)    # vector over number field
+            nz = A._eigen_nonzero()
+
+            save(B, self._db.factor_basis_matrix(N, k, i, d))
+            save(Bd, self._db.factor_dual_basis_matrix(N, k, i, d))
+            save(v, self._db.factor_dual_eigenvector(N, k, i, d))
+            save(nz, self._db.factor_eigen_nonzero(N, k, i, d))
+
         tm = cputime(t)
-        meta = {'cputime':tm, 'version':version()}
-        save(meta, filenames.meta(aplist_file))
+        meta = {'cputime':tm, 'number':len(D), 'version':version()}
+        save(meta, self._db.decomp_meta(N, k, i))
 
-def compute_aplists_ranges(Nrange, krange, irange, ncpu, *args):
-    @parallel(ncpu)
-    def f(N,k,i):
-        compute_aplists(N,k,i,*args)
+    def compute_decomposition_ranges(self,Nrange, krange, irange, ncpu):
+        @parallel(ncpu)
+        def f(N,k,i):
+            self._db.compute_decompositions(N,k,i)
 
-    v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
-    for X in f(v):
-        print X
+        v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
+        for X in f(v):
+            print X
 
-def phase1_goals(stages, fields=None):
-    """
-      Trivial character S_k(G0(N)):
-         0. k=2   and N<=4096= 2^12
-         1. k<=16 and N<=512 = 2^9
-         2. k<=32 and N<=32  = 2^5
-      Nontrivial character S_k(N, chi):
-         3. k<=16, N<=128 = 2^7, all chi quadratic
-         4. k=2,   N<=128 = 2^7, all chi!=1, up to Galois orbit
-    """
-    if 0 in stages:
-        for X in filenames.find_missing(range(1,4096+1), [2], 0, fields=fields):
-            yield X
-            
-    if 1 in stages:
-        for X in filenames.find_missing(range(1,513),
-                                        range(2,17,2), 0, fields=fields):
-            yield X
-            
-    if 2 in stages:
-        for X in filenames.find_missing(range(1,33),
-                                        range(2,33,2), 0, fields=fields):
-            yield X
-            
-    if 3 in stages:
-        for X in filenames.find_missing(range(1,129),
-                                 range(2,17), 'quadratic', fields=fields):
-            yield X
-            
-    if 4 in stages:
-        for X in filenames.find_missing(range(1,129), 2, 'all', fields=fields):
-            yield X
-        
 
-def phase1_goals0(stages, fields=None):
-    v = []
-    for X in phase1_goals(stages, fields):
-        print X
-        v.append(X)
-    return v
+    # atkin_lehner
+    @fork    
+    def compute_atkin_lehner(self,N, k, i):
+        filename = self_db.ambient(N, k, i)
+        if not os.path.exists(filename):
+            print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
+            return
+            #compute_ambient_space(N, k, i)
 
-# suggestion for collection is: mfdb.compute.nsql.missing.phase0
-def phase1_goals_db(collection, stages, fields=None):
-    for X in phase1_goals(stages, fields):
-        print X
-        collection.insert(X)
+        print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
+        m = self._db.number_of_known_factors(N, k, i)    
+        M = self._db.load_ambient_space(N, k, i)
+        for d in range(m):
+            atkin_lehner_file = self._mfdb.factor_atkin_lehner(N, k, i, d, False)
+            if os.path.exists(atkin_lehner_file):
+                print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
+                # already done
+                continue
 
-def generate_computations_missing_M(collection):
-    v = []
-    for X in collection.find(missing="M"):
-        N,k,i = X['space']
-        v.append('compute_ambient_space(%s,%s,%s)'%(N,k,i))
-    return list(sorted(set(v)))
-        
-def generate_computations_missing_decomp(collection):
-    v = []
-    for X in collection.find(missing="decomp"):
-        N,k,i = X['space']
-        v.append('compute_decompositions(%s,%s,%s)'%(N,k,i))
-    return list(sorted(set(v)))        
-        
-def generate_computations_missing_aplists(collection):
-    v = []
-    for X in collection.find(missing="other"):
-        N,k,i = X['space']
-        if 'aplist-00100' in X['other']:
-            v.append('compute_aplists(%s, %s, %s, 100)'%(N,k,i))
-        if 'aplist-00100-01000' in X['other']:
-            v.append('compute_aplists(%s, %s, %s, 100, 1000)'%(N,k,i))
-        if 'aplist-01000-10000' in X['other']:
-            v.append('compute_aplists(%s, %s, %s, 1000, 10000)'%(N,k,i))
-##         if 'charpoly-00100' in X['other']:
-##             v.append('compute_charpolys(%s, %s, %s, 100)'%(N,k,i))
-##         if 'charpoly-00100-01000' in X['other']:
-##             v.append('compute_charpolys(%s, %s, %s, 100, 1000)'%(N,k,i))
-##         if 'charpoly-01000-10000' in X['other']:
-##             v.append('compute_charpolys(%s, %s, %s, 1000, 10000)'%(N,k,i))
-    return list(sorted(set(v)))        
-    
+            # compute atkin_lehner
+            print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
+            t = cputime()
+            A = self._db.load_factor(N, k, i, d, M)
+            al = ' '.join(['+' if a > 0 else '-' for a in atkin_lehner_signs(A)])
+            print al
+            open(atkin_lehner_file, 'w').write(al)
+            tm = cputime(t)
+            meta = {'cputime':tm, 'version':version()}
+            save(meta, self._db.meta(atkin_lehner_file))
+
+    # aplists
+    @fork    
+    def compute_aplists(self,N, k, i, *args):
+        if i == 'all':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn:
+                    self.compute_aplists(N,k,j,*args)
+            return
+
+        if i == 'quadratic':
+            G = DirichletGroup(N).galois_orbits()
+            sgn = (-1)**k
+            for j, g in enumerate(G):
+                if g[0](-1) == sgn and g[0].order()==2:
+                    self.compute_aplists(N,k,j,*args)
+            return
+
+        if len(args) == 0:
+            args = (100, )
+
+        filename = self._db.ambient(N, k, i)
+        if not os.path.exists(filename):
+            print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
+            return
+            #compute_ambient_space(N, k, i)
+
+        print "computing aplists for (%s,%s,%s)"%(N,k,i)
+
+        m = self._db.number_of_known_factors(N, k, i)
+
+        if m == 0:
+            # nothing to do
+            return
+
+        M = self._db.load_ambient_space(N, k, i)
+        for d in range(m):
+            aplist_file = self._db.factor_aplist(N, k, i, d, False, *args)
+            if os.path.exists(aplist_file):
+                print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
+                # already done
+                continue
+
+            # compute aplist
+            print "computing aplist(%s) for (%s,%s,%s,%s)"%(args, N,k,i,d)
+            t = cputime()
+            A = self._db.load_factor(N, k, i, d, M)
+            aplist, _ = A.compact_system_of_eigenvalues(prime_range(*args), 'a')
+            print aplist, aplist_file
+            save(aplist, aplist_file)
+            tm = cputime(t)
+            meta = {'cputime':tm, 'version':version()}
+            save(meta, self._db.meta(aplist_file))
+
+    def compute_aplists_ranges(self,Nrange, krange, irange, ncpu, *args):
+        @parallel(ncpu)
+        def f(N,k,i):
+            self.compute_aplists(N,k,i,*args)
+
+        v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
+        for X in f(v):
+            print X
+
+    def phase1_goals(self,stages, fields=None):
+        """
+          Trivial character S_k(G0(N)):
+             0. k=2   and N<=4096= 2^12
+             1. k<=16 and N<=512 = 2^9
+             2. k<=32 and N<=32  = 2^5
+          Nontrivial character S_k(N, chi):
+             3. k<=16, N<=128 = 2^7, all chi quadratic
+             4. k=2,   N<=128 = 2^7, all chi!=1, up to Galois orbit
+        """
+        if 0 in stages:
+            for X in self._db.find_missing(range(1,4096+1), [2], 0, fields=fields):
+                yield X
+
+        if 1 in stages:
+            for X in self._db.find_missing(range(1,513),
+                                            range(2,17,2), 0, fields=fields):
+                yield X
+
+        if 2 in stages:
+            for X in self._db.find_missing(range(1,33),
+                                            range(2,33,2), 0, fields=fields):
+                yield X
+
+        if 3 in stages:
+            for X in self._db.find_missing(range(1,129),
+                                     range(2,17), 'quadratic', fields=fields):
+                yield X
+
+        if 4 in stages:
+            for X in self._db.find_missing(range(1,129), 2, 'all', fields=fields):
+                yield X
+
+
+    def phase1_goals0(self,stages, fields=None):
+        v = []
+        for X in phase1_goals(stages, fields):
+            print X
+            v.append(X)
+        return v
+
+    # suggestion for collection is: mfself.compute.nsql.missing.phase0
+    def phase1_goals_self(self, stages, fields=None):
+        for X in self.phase1_goals(stages, fields):
+            print X
+            self._collection.insert(X)
+
+    def generate_computations_missing_M(self):
+        v = []
+        for X in self._collection.find(missing="M"):
+            N,k,i = X['space']
+            v.append('compute_ambient_space(%s,%s,%s)'%(N,k,i))
+        return list(sorted(set(v)))
+
+    def generate_computations_missing_decomp(self):
+        v = []
+        for X in self._collection.find(missing="decomp"):
+            N,k,i = X['space']
+            v.append('compute_decompositions(%s,%s,%s)'%(N,k,i))
+        return list(sorted(set(v)))        
+
+    def generate_computations_missing_aplists(self):
+        v = []
+        for X in self._collection.find(missing="other"):
+            N,k,i = X['space']
+            if 'aplist-00100' in X['other']:
+                v.append('compute_aplists(%s, %s, %s, 100)'%(N,k,i))
+            if 'aplist-00100-01000' in X['other']:
+                v.append('compute_aplists(%s, %s, %s, 100, 1000)'%(N,k,i))
+            if 'aplist-01000-10000' in X['other']:
+                v.append('compute_aplists(%s, %s, %s, 1000, 10000)'%(N,k,i))
+    ##         if 'charpoly-00100' in X['other']:
+    ##             v.append('compute_charpolys(%s, %s, %s, 100)'%(N,k,i))
+    ##         if 'charpoly-00100-01000' in X['other']:
+    ##             v.append('compute_charpolys(%s, %s, %s, 100, 1000)'%(N,k,i))
+    ##         if 'charpoly-01000-10000' in X['other']:
+    ##             v.append('compute_charpolys(%s, %s, %s, 1000, 10000)'%(N,k,i))
+        return list(sorted(set(v)))        
+
 
 
 import sage.all
@@ -774,8 +790,9 @@ def parallel_eval(v, ncpu, do_fork=True):
             return eval(X)
     for Z in f(v):
         print Z
-
-        
-        
         
     
+
+def atkin_lehner_signs(A):
+    N = A.level()
+    return [A.atkin_lehner_operator(p).matrix()[0,0] for p in prime_divisors(N)]

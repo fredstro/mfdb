@@ -16,9 +16,9 @@ Todo:
 import mfdb.compute
 reload(mfdb.compute)
 mfdb.compute.filenames.update_known_db()
-mfdb.compute.compute_ambient_spaces([1..2], [2..100], 'all', 12)
-mfdb.compute.compute_decomposition_ranges([1..2], [2..100],'all', 12)
-mfdb.compute.compute_aplists_ranges([1..2], [2..100], 'all', 12, 100)
+mfdb.compute.compute_ambient_spaces([1..2], [2..100], 'all', 2)
+mfdb.compute.compute_decomposition_ranges([1..2], [2..100],'all', 2)
+mfdb.compute.compute_aplists_ranges([1..2], [2..100], 'all', 2, 100)
 
 
 ## Example for reconstructing data

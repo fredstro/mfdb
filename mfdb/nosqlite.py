@@ -36,7 +36,7 @@ import SocketServer
 import socket
 from SimpleXMLRPCServer import (SimpleXMLRPCServer, SimpleXMLRPCRequestHandler)
 
-# I also develop the Sage (http://sagemath.org) library, so personally
+# I also develop the Sage (http%://sagemath.org) library, so personally
 # find having automatic support for Sage Integers and RealNumbers to
 # be very handy.  This will get ignored if you don't have Sage
 # installed.

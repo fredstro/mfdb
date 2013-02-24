@@ -3,3 +3,6 @@ push
 *.DS_Store
 *.pyc
 data/
+8100/
+#*
+nosqlite_*db/
