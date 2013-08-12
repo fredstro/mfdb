@@ -381,6 +381,7 @@ class FilenamesMFDB(Filenames):
         #save(M, filename)
         meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
         save(meta, self.meta(filename))
+        print "save {0} to {1}".format(meta,filename)
 
     def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
         @parallel(ncpu)
@@ -497,7 +498,7 @@ class FilenamesMFDB(Filenames):
         print "fname=",fname
         if os.path.exists(fname):
             print "returning!"
-            return dict_to_ambient(load(fname))
+            return self.dict_to_ambient(load(fname))
         fname = self.M(N, k, i, makedir=False)
         if os.path.exists(fname):
             return load(fname)
@@ -536,8 +537,12 @@ class ComputeMFData(object):
             db = FilenamesMFDB(db)
         self._db = db  ## Should be instance of, e.g. FilenamesMFDB
         self._collection = self._db
-   # decompositions
+    # decompositions
+    def compute_ambient_space(self,N,k,i):
+        self._db.compute_ambient_space(N,k,i)
 
+   
+       
     @fork    
     def compute_decompositions(self,N, k, i):
         if i == 'all':
@@ -556,11 +561,11 @@ class ComputeMFData(object):
                     self.compute_decompositions(N,k,j)
             return
 
-        filename = self_db.ambient(N, k, i)
+        filename = self._db.ambient(N, k, i)
         if not os.path.exists(filename):
             print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
-            return
-            #compute_ambient_space(N, k, i)
+            #return
+            self.compute_ambient_space(N, k, i)
         if not os.path.exists(filename):
             return 
 
