@@ -9,7 +9,8 @@ import os
 import sqlite3
 import nosqlite
 
-nsql = nosqlite.Client('nsql')
+#nsql = nosqlite.Client('nsql')
+verbose = 0
 
 from sage.all import (ModularSymbols, DirichletGroup, trivial_character,
                       dimension_new_cusp_forms,
@@ -497,7 +498,6 @@ class FilenamesMFDB(Filenames):
         fname = self.ambient(N, k, i, makedir=False)
         print "fname=",fname
         if os.path.exists(fname):
-            print "returning!"
             return self.dict_to_ambient(load(fname))
         fname = self.M(N, k, i, makedir=False)
         if os.path.exists(fname):
@@ -575,8 +575,10 @@ class ComputeMFData(object):
             return
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
-        print "M"
+        if verbose>0:
+            print "M=",M
         D = M.cuspidal_subspace().new_subspace().decomposition()
+        
         for d in range(len(D)):
             f = self._db.factor_basis_matrix(N, k, i, d)
             if os.path.exists(f):
@@ -599,20 +601,26 @@ class ComputeMFData(object):
     def compute_decomposition_ranges(self,Nrange, krange, irange, ncpu):
         @parallel(ncpu)
         def f(N,k,i):
-            self._db.compute_decompositions(N,k,i)
+            self.compute_decompositions(N,k,i)
 
         v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
         for X in f(v):
             print X
 
-
+    def compute_ambient_space_ranges(self,Nrange, krange, irange, ncpu):
+        @parallel(ncpu)
+        def f(N,k,i):
+            self._db.compute_ambient_space(N,k,i)
+        v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
+        for X in f(v):
+            print X
     # atkin_lehner
     @fork    
     def compute_atkin_lehner(self,N, k, i):
         filename = self_db.ambient(N, k, i)
         if not os.path.exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
-            return
+            return -1
             #compute_ambient_space(N, k, i)
 
         print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
@@ -661,7 +669,7 @@ class ComputeMFData(object):
         filename = self._db.ambient(N, k, i)
         if not os.path.exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
-            return
+            return -1
             #compute_ambient_space(N, k, i)
 
         print "computing aplists for (%s,%s,%s)"%(N,k,i)

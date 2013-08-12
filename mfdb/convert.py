@@ -2,7 +2,7 @@ r"""
 Programs aimed to read Williams data and convert to/from other files or databases
 """
 import sage.all
-import os
+import os,re
 import glob
 import sqlite3
 #import nosqlite
@@ -158,39 +158,77 @@ class WDB(object):
         rb = "[0-9][0-9][0-9][0-9][0-9]"
         for N,k,i,numorbits,aps in l:
             #print N,k,i,numorbits,aps
-            res[(N,k,i)]={}
+            #res[(N,k,i)]={}
             for j in range(numorbits):
                 if n0 <>None and j<>n0:
                     continue
                 #print "aps=",aps
                 v = compute.load(self._db.factor_dual_eigenvector(N,k,i,j,makedir=False))
-                ## initial list of ap's
-                fname = self._db.factor_aplist(N,k,i,j,False,100)
-                meta = load(self._db.meta(fname))
-                aplist = compute.load(fname)
-
-                ## Do we want more coefficients
-                if format == 'web':
-                    s = self._format_aps(aplist,v)
-                    s += "\n"+str(meta)
-                    res[(N,k,i)][j]=s
-                else:
-                    #aplist*v
-                    res[(N,k,i)][j]={(0,100):(aplist*v,meta)}
-                if all_coeffs:
-                    cdir = self._db.factor(N,k,i,j)
-                    list_of_files = glob.glob('{dir}/aplist-{rb}-{rb}.sobj'.format(dir=cdir,rb=rb))
-                    #print "list=",list_of_files
-                    for name in list_of_files:
-                        #print "name=",name
-                        apn = re.findall("aplist.*",name)[0]                
-                        ns = re.findall("[0-9]+",apn)
-                        m,n =ns
+                cdir = self._db.factor(N,k,i,j)
+                print "cdir=",cdir
+                s = '{dir}/aplist-*{rb}.sobj'.format(dir=cdir,rb=rb)
+                print "glob_Str=",s
+                list_of_files = glob.glob(s)
+                print "list=",list_of_files
+                for name in list_of_files:
+                    print "name=",name
+                    apn = re.findall("aplist.*",name)[0]                
+                    ns = re.findall("[0-9]+",apn)
+                    print "apn=",apn
+                    print "ns=",ns
+                    if len(ns)==1:
+                        n=Integer(ns[0].lstrip('0')); m=2
+                        fname = '{dir}/aplist-{n:05d}.sobj'.format(dir=cdir,n=n)      
+                    elif len(ns)==2:
+                        m= Integer(ns[0].lstrip('0')); n = Integer(ns[1].lstrip('0'))
                         fname = '{dir}/aplist-{m:05d}-{n:05d}.sobj'.format(dir=cdir,m=m,n=n)
-                        aplist = mfdb.compute.load(fname) 
-                        s = self._format_aps(aplist,v)
-                        meta = load(mfdb.compute.filenames.meta(fname))
-                        res[(N,k,i,j)]={(m,n):(s,meta)}
+                    else:
+                        raise ValueError,"Got wrong filename format!"
+
+                    aplist = load(fname)                             
+                    meta = load(self._db.meta(fname))
+                    if format == 'web':
+                        s += self._format_aps(aplist,v)                             
+                        s += "\n"+str(meta)
+                        res[(N,k,i,j)]=s                         
+                    else:
+                        res[(N,k,i,j)]={(m,n):(aplist*v,meta)}
+                    if not all_coeffs:
+                        break
+ ## initial list of ap's
+                ## Getting the first file
+                #fname = self._db.factor_aplist(N,k,i,j,False,100)
+                #meta = load(self._db.meta(fname))
+                #aplist = compute.load(fname)
+                
+                ## Do we want more coefficients or just the first?
+                # if format == 'web':
+                #     s = self._format_aps(aplist,v)
+                #     s += "\n"+str(meta)
+                #     res[(N,k,i)][j]=s
+                # else:
+                #     #aplist*v
+                #     res[(N,k,i)][j]={(0,100):(aplist*v,meta)}
+                # # if all_coeffs:
+                #     cdir = self._db.factor(N,k,i,j)
+                #     list_of_files = glob.glob('{dir}/aplist-{rb}-{rb}.sobj'.format(dir=cdir,rb=rb))
+                #     #print "list=",list_of_files
+                #     for name in list_of_files:
+                #         #print "name=",name
+                #         apn = re.findall("aplist.*",name)[0]                
+                #         ns = re.findall("[0-9]+",apn)
+                #         m,n =ns
+                #         fname = '{dir}/aplist-{m:05d}-{n:05d}.sobj'.format(dir=cdir,m=m,n=n)
+                #         aplist = mfdb.compute.load(fname)                             
+                #         meta = load(mfdb.compute.filenames.meta(fname))
+                #         if format == 'web':
+                #              s += self._format_aps(aplist,v)                             
+                #              s += "\n"+str(meta)
+                #              res[(N,k,i)][j]=s 
+                            
+                #         else:
+
+                #         res[(N,k,i,j)]={(m,n):(s,meta)}
             return res
 
 
