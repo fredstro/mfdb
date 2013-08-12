@@ -541,6 +541,14 @@ class ComputeMFData(object):
     def compute_ambient_space(self,N,k,i):
         self._db.compute_ambient_space(N,k,i)
 
+    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
+        @parallel(ncpu)
+        def f(N,k,i):
+            self.compute_ambient_space(N,k,i)
+
+        v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
+        for X in f(v):
+            print X
    
        
     @fork    
