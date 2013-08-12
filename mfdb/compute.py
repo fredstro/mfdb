@@ -29,6 +29,9 @@ def dim_new(chi, k):
     else:
         return dimension_new_cusp_forms(chi, k)
 
+def rangify(v):
+        return [v] if isinstance(v, (int, long, Integer, str)) else v
+    
 @cached_function
 def characters(N):
     """
@@ -341,6 +344,9 @@ class Filenames(object):
 
 
 class FilenamesMFDB(Filenames):
+    r"""
+
+    """
     def __init__(self,data):
         super(FilenamesMFDB,self).__init__(data)        
 
@@ -375,9 +381,6 @@ class FilenamesMFDB(Filenames):
         #save(M, filename)
         meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
         save(meta, self.meta(filename))
-
-    def rangify(v):
-        return [v] if isinstance(v, (int, long, Integer, str)) else v
 
     def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
         @parallel(ncpu)
@@ -796,3 +799,8 @@ def parallel_eval(v, ncpu, do_fork=True):
 def atkin_lehner_signs(A):
     N = A.level()
     return [A.atkin_lehner_operator(p).matrix()[0,0] for p in prime_divisors(N)]
+
+
+
+
+    
