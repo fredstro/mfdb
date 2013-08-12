@@ -749,21 +749,21 @@ class ComputeMFData(object):
 
     def generate_computations_missing_M(self):
         v = []
-        for X in self._collection.find(missing="M"):
+        for X in self._collection.find_missing(fields="M"):
             N,k,i = X['space']
             v.append('compute_ambient_space(%s,%s,%s)'%(N,k,i))
         return list(sorted(set(v)))
 
     def generate_computations_missing_decomp(self):
         v = []
-        for X in self._collection.find(missing="decomp"):
+        for X in self._collection.find_missing(field="decomp"):
             N,k,i = X['space']
             v.append('compute_decompositions(%s,%s,%s)'%(N,k,i))
         return list(sorted(set(v)))        
 
     def generate_computations_missing_aplists(self):
         v = []
-        for X in self._collection.find(missing="other"):
+        for X in self._collection.find_missing(fields="other"):
             N,k,i = X['space']
             if 'aplist-00100' in X['other']:
                 v.append('compute_aplists(%s, %s, %s, 100)'%(N,k,i))
