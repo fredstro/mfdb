@@ -551,7 +551,7 @@ class FilenamesMFDB(Filenames):
         d = self._data
         for X in self.listdir(d):
             p = self.make_path_name(d, X)
-            if self.isdir(p):
+            if self._db.isdir(p):
                 f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' not in f:
                     print X
@@ -564,7 +564,7 @@ class FilenamesMFDB(Filenames):
         d = self._data
         for X in self.listdir(d):
             p = self.make_path_name(d, X)
-            if self.isdir(p):
+            if self._db.isdir(p):
                 f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' in f:
                     print "Remove: \n ",X                    
@@ -649,9 +649,9 @@ class ComputeMFData(object):
                     self.compute_decompositions(N,k,j)
             return
 
-        filename = self._db.ambient(N, k, i)
+        filename = self._db.ambient(N, k, i)        
         if not self._db.path_exists(filename):
-            print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
+            print "Ambient space ({0},{1},{2}) not computed. filename={3}".format(N,k,i,filename)
             #return
             self.compute_ambient_space(N, k, i)
         if not self._db.path_exists(filename):
@@ -756,7 +756,7 @@ class ComputeMFData(object):
 
         filename = self._db.ambient(N, k, i)
         if not self._db.path_exists(filename):
-            print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
+            print "Ambient ({0},{1},{2}) space not computed. Filename:{3}".format(N,k,i,filename)
             return -1
             #compute_ambient_space(N, k, i)
 
