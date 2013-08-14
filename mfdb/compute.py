@@ -136,15 +136,16 @@ class Filenames(object):
         else:
             return self._sftp.listdir(f)
 
-    def isdir(path):
+    def isdir(self,path):
         if self._sftp==None:
+            return os.isdir(path)
+        else:
             try:
-                return S_ISDIR(sftp.stat(path).st_mode)
+                return S_ISDIR(self._sftp.stat(path).st_mode)
             except IOError:
                 # Path does not exist, so by definition not a directory
                 return False
-        else:
-            return os.isdir(path)
+
 
     def delete_file(self,path):
         if self._sftp == None:
@@ -762,12 +763,13 @@ class ComputeMFData(object):
         print "computing aplists for (%s,%s,%s)"%(N,k,i)
 
         m = self._db.number_of_known_factors(N, k, i)
-
+        print "m=",m
         if m == 0:
             # nothing to do
             return
 
         M = self._db.load_ambient_space(N, k, i)
+        print "M,m=",M,m
         for d in range(m):
             aplist_file = self._db.factor_aplist(N, k, i, d, False, *args)
             if self._db.path_exists(aplist_file):
