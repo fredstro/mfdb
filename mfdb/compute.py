@@ -118,7 +118,7 @@ class Filenames(object):
 
     def make_path_name(self,f,*args):
         if self._sftp==None:
-            s = os.path.join(self._data, self.space_name(N,k,i))
+            s = os.path.join(self._data,f) # , self.space_name(N,k,i))
         else:
             s = "{0}/{1}".format(self._data,f)
         for fs in args:
@@ -146,7 +146,7 @@ class Filenames(object):
         else:
             return os.isdir(path)
 
-   def delete_file(self,path):
+    def delete_file(self,path):
         if self._sftp == None:
             os.unlink(path)
         else:
@@ -450,7 +450,6 @@ class FilenamesMFDB(Filenames):
                 if g[0](-1) == sgn and g[0].order()==2:
                     self.compute_ambient_space(N,k,j)
             return
-
         filename = self.ambient(N, k, i)
         if self.path_exists(filename):
             return
@@ -650,16 +649,16 @@ class ComputeMFData(object):
             return
 
         filename = self._db.ambient(N, k, i)
-        if not self.path_exists(filename):
+        if not self._db.path_exists(filename):
             print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
             #return
             self.compute_ambient_space(N, k, i)
-        if not self.path_exists(filename):
+        if not self._db.path_exists(filename):
             return 
 
         eps = DirichletGroup(N).galois_orbits()[i][0]
-
-        if self.path_exists(self._db.factor(N, k, i, 0, makedir=False)):
+        # check if the factor already exists
+        if self._db.path_exists(self._db.factor(N, k, i, 0, makedir=False)):
             return
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
@@ -669,7 +668,7 @@ class ComputeMFData(object):
         
         for d in range(len(D)):
             f = self._db.factor_basis_matrix(N, k, i, d)
-            if self.path_exists(f):
+            if self._db.path_exists(f):
                 continue
             A = D[d]
             B  = A.free_module().basis_matrix()
@@ -706,7 +705,7 @@ class ComputeMFData(object):
     @fork    
     def compute_atkin_lehner(self,N, k, i):
         filename = self_db.ambient(N, k, i)
-        if not self.path_exists(filename):
+        if not self._db.path_exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
             return -1
             #compute_ambient_space(N, k, i)
@@ -716,7 +715,7 @@ class ComputeMFData(object):
         M = self._db.load_ambient_space(N, k, i)
         for d in range(m):
             atkin_lehner_file = self._mfdb.factor_atkin_lehner(N, k, i, d, False)
-            if self.path_exists(atkin_lehner_file):
+            if self._db.path_exists(atkin_lehner_file):
                 print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
                 # already done
                 continue
@@ -755,7 +754,7 @@ class ComputeMFData(object):
             args = (100, )
 
         filename = self._db.ambient(N, k, i)
-        if not self.path_exists(filename):
+        if not self._db.path_exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
             return -1
             #compute_ambient_space(N, k, i)
@@ -771,7 +770,7 @@ class ComputeMFData(object):
         M = self._db.load_ambient_space(N, k, i)
         for d in range(m):
             aplist_file = self._db.factor_aplist(N, k, i, d, False, *args)
-            if self.path_exists(aplist_file):
+            if self._db.path_exists(aplist_file):
                 print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
                 # already done
                 continue
