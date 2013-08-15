@@ -138,7 +138,7 @@ class Filenames(object):
 
     def isdir(self,path):
         if self._sftp==None:
-            return os.isdir(path)
+            return os.path.isdir(path)
         else:
             try:
                 return S_ISDIR(self._sftp.stat(path).st_mode)
