@@ -224,6 +224,8 @@ class Filenames(object):
             z = Nki.split('-')
             if len(z) == 3:
                 N, k, i = parse_Nki(Nki)
+                if k==1: # weight 1 not implemented
+                    continue
                 newforms = [x for x in self.listdir(self.make_path_name(self._data, Nki)) if x.isdigit()]
                 if len(newforms) == 0:
                     # maybe nothing computed?
@@ -612,9 +614,13 @@ class ComputeMFData(object):
     r"""
     Use Williams methods to compute tables of modular forms data
     """
-    def __init__(self,db):
+    def __init__(self,db,compute_ambient=False):
+        r"""
+        compute_ambient = True if you want to compute ambient spaces when missing
+        """
         if isinstance(db,str):
             db = FilenamesMFDB(db)
+        self._compute_ambient = compute_ambient
         self._db = db  ## Should be instance of, e.g. FilenamesMFDB
         self._collection = self._db
     # decompositions
