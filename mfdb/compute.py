@@ -8,7 +8,9 @@ import os
 
 import sqlite3
 import nosqlite
-
+# Use SFTP via paramiko to work with files remotely
+# (since some of the HPC systems has ridiculously low quotas)
+import paramiko
 #nsql = nosqlite.Client('nsql')
 verbose = 0
 
@@ -67,60 +69,139 @@ def character(N, i):
 def parse_Nki(s):
     return tuple(int(x) for x in s.split('-'))
 
+def rexists(sftp, path):
+    """os.path.exists for paramiko's SCP object
+    """
+    try:
+        sftp.stat(path)
+    except IOError, e:
+        if e[0] == 2:
+            return False
+        raise
+    else:
+        return True
+
+from stat import S_ISDIR
+
+    
 class Filenames(object):
-    def __init__(self, data):
-        if not os.path.exists(data):
+    def __init__(self, data,host='',username=''):
+        r"""
+        If host is left empty we work with local files, otherwise via SFTP 
+        """
+        self._host = host
+        self._sftp = None
+        self._ssh = None
+        if self._host <> '':
+            self._ssh = paramiko.SSHClient() 
+            self._ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
+            self._ssh.connect(self._host, username=username, password='')
+            self._sftp = self._ssh.open_sftp()
+        if not self.path_exists(data):
             raise RuntimeError, "please create the data directory '%s'"%data
         self._data = data
-        self._known_db_file = os.path.join(self._data, 'known.sqlite3')
+        if self._host=='':
+            self._known_db_file = os.path.join(self._data, 'known.sqlite3')
+        else:
+            self._known_db_file = "{0}:{1}/known.sqlite3".format(host,data)
 
+    ## file interface functions
+            
+    def path_exists(self,f):
+        r"""
+        Check if the path f exists as a local file or on the remote host.
+        """
+        if self._sftp == None:
+            return os.path.exists(f)
+        else:
+            return rexists(self._sftp,f)
+
+    def make_path_name(self,f,*args):
+        if self._sftp==None:
+            s = os.path.join(self._data,f) # , self.space_name(N,k,i))
+        else:
+            s = "{0}/{1}".format(self._data,f)
+        for fs in args:
+            s+= "/{0}".format(fs)
+        return s
+    
+    def makedirs(self,f):
+        if self._sftp==None:
+            os.makedirs(f)
+        else:
+            self._sftp.mkdir(f)
+    def listdir(self,f):
+        if self._sftp == None:
+            return os.listdir(f)
+        else:
+            return self._sftp.listdir(f)
+
+    def isdir(self,path):
+        if self._sftp==None:
+            return os.path.isdir(path)
+        else:
+            try:
+                return S_ISDIR(self._sftp.stat(path).st_mode)
+            except IOError:
+                # Path does not exist, so by definition not a directory
+                return False
+
+
+    def delete_file(self,path):
+        if self._sftp == None:
+            os.unlink(path)
+        else:
+            self._sftp.remove(path)
+
+
+        
     def space_name(self, N, k, i):
         return '%05d-%03d-%03d'%(N,k,i)
     
     def space(self, N, k, i, makedir=True):
-        f = os.path.join(self._data, self.space_name(N,k,i))
-        if makedir and not os.path.exists(f):
-            os.makedirs(f)
+        f = self.make_path_name(self.space_name(N,k,i))
+        if makedir and not self.path_exists(f):
+            self.makedirs(f)
         return f
 
     def M(self, N, k, i, makedir=True):
-        return os.path.join(self.space(N,k,i,makedir=makedir), 'M.sobj')
+        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
 
     def ambient(self, N, k, i, makedir=True):
-        return os.path.join(self.space(N,k,i,makedir=makedir), 'ambient.sobj')
+        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'ambient.sobj')
 
     def decomp_meta(self, N, k, i):
-        return os.path.join(self.space(N,k,i), 'decomp-meta.sobj')
+        return self.make_path_name(self.space(N,k,i), 'decomp-meta.sobj')
     
     def factor(self, N, k, i, d, makedir=True):
-        f = os.path.join(self.space(N,k,i,makedir), '%03d'%d)
-        if makedir and not os.path.exists(f):
-            os.makedirs(f)
+        f = self.make_path_name(self.space(N,k,i,makedir), '%03d'%d)
+        if makedir and not self.path_exists(f):
+            self.makedirs(f)
         return f
 
     def number_of_known_factors(self, N, k, i):
         fn = self.space(N,k,i)
-        return len([d for d in os.listdir(fn) if
-                   d.isdigit() and os.path.isdir(os.path.join(fn, d))])
+        return len([d for d in self.listdir(fn) if
+                    d.isdigit() and self.isdir(self.make_path_name(fn, d))])
         
     def factor_basis_matrix(self, N, k, i, d):
-        return os.path.join(self.factor(N,k,i,d), 'B.sobj')
+        return self.make_path_name(self.factor(N,k,i,d), 'B.sobj')
     
     def factor_dual_basis_matrix(self, N, k, i, d):
-        return os.path.join(self.factor(N,k,i,d), 'Bd.sobj')
+        return self.make_path_name(self.factor(N,k,i,d), 'Bd.sobj')
     
     def factor_dual_eigenvector(self, N, k, i, d, makedir=True):
-        return os.path.join(self.factor(N,k,i,d,makedir=makedir), 'v.sobj')
+        return self.make_path_name(self.factor(N,k,i,d,makedir=makedir), 'v.sobj')
 
     def factor_eigen_nonzero(self, N, k, i, d):
-        return os.path.join(self.factor(N,k,i,d), 'nz.sobj')
+        return self.make_path_name(self.factor(N,k,i,d), 'nz.sobj')
 
     def factor_aplist(self, N, k, i, d, makedir, *args):
         a = '-'.join('%05d'%x for x in args)
-        return os.path.join(self.factor(N,k,i,d,makedir), 'aplist-%s.sobj'%a)
+        return self.make_path_name(self.factor(N,k,i,d,makedir), 'aplist-%s.sobj'%a)
 
     def factor_atkin_lehner(self, N, k, i, d, makedir):
-        return os.path.join(self.factor(N,k,i,d,makedir), 'atkin_lehner.txt')
+        return self.make_path_name(self.factor(N,k,i,d,makedir), 'atkin_lehner.txt')
     
     def meta(self, filename):
         base, ext = os.path.splitext(filename)
@@ -139,11 +220,13 @@ class Filenames(object):
         If no newforms are known but there are newforms (they just
         haven't been computed), then newforms is set to -1.
         """
-        for Nki in os.listdir(self._data):
+        for Nki in self.listdir(self._data):
             z = Nki.split('-')
             if len(z) == 3:
                 N, k, i = parse_Nki(Nki)
-                newforms = [x for x in os.listdir(os.path.join(self._data, Nki)) if x.isdigit()]
+                if k==1: # weight 1 not implemented
+                    continue
+                newforms = [x for x in self.listdir(self.make_path_name(self._data, Nki)) if x.isdigit()]
                 if len(newforms) == 0:
                     # maybe nothing computed?
                     if i == 0:
@@ -163,7 +246,7 @@ class Filenames(object):
                     for n in newforms:
                         v = set([])
                         this_maxp = 0
-                        for X in os.listdir(os.path.join(self._data, Nki, n)):
+                        for X in self.listdir(self.make_path_name(self._data, Nki, n)):
                             if X.startswith('aplist') and 'meta' not in X:
                                 args = [int(a) for a in X.rstrip('.sobj').split('-')[1:]]
                                 v.update(prime_range(*args))
@@ -179,7 +262,8 @@ class Filenames(object):
 
     def update_known_db(self):
         # 1. create the sqlite3 database
-        if os.path.exists(self._known_db_file):
+        # Unlink is only necessary with loal files
+        if self.os.path.exists(self._known_db_file):
             os.unlink(self._known_db_file)
         db = sqlite3.connect(self._known_db_file)
         cursor = db.cursor()
@@ -252,7 +336,7 @@ class Filenames(object):
             assert isinstance(fields, (list, tuple, str))
             fields = set(fields)
 
-        space_params = set(os.listdir(self._data))
+        space_params = set(self.listdir(self._data))
         for k in rangify(krange):
             for N in rangify(Nrange):
                 for ch in rangify(irange):
@@ -282,30 +366,30 @@ class Filenames(object):
                             if 'decomp' in fields0:
                                 fields0.remove('decomp')
                             Nki = self.space_name(N,k,i)
-                            d3 = os.path.join(self._data, Nki)
-                            if Nki not in space_params or not os.path.exists(os.path.join(d3, 'M-meta.sobj')):
+                            d3 = self.make_path_name(self._data, Nki)
+                            if Nki not in space_params or not self.path_exists(self.make_path_name(d3, 'M-meta.sobj')):
                                 if 'M' in fields:
                                     obj2 = dict(obj)
                                     obj2['missing'] = 'M'
                                     yield obj2
                                 break
                             newforms = []
-                            for fname in os.listdir(d3):
+                            for fname in self.listdir(d3):
                                 if fname.isdigit():
                                     # directory containing data about a newforms
-                                    d2 = os.path.join(d3, fname)
-                                    deg = os.path.join(d2, 'degree.txt')
-                                    if os.path.exists(deg):
+                                    d2 = self.make_path_name(d3, fname)
+                                    deg = self.make_path_name(d2, 'degree.txt')
+                                    if self.path_exists(deg):
                                         degree = eval(open(deg).read())
                                     else:
-                                        B_file = os.path.join(d2, 'B.sobj')
-                                        if not os.path.exists(B_file):
+                                        B_file = self.make_path_name(d2, 'B.sobj')
+                                        if not self.path_exists(B_file):
                                             degree = None
                                         else:
                                             degree = load(B_file).nrows()
-                                            open(os.path.join(d2, 'degree.txt'),'w').write(str(degree))
+                                            open(self.make_path_name(d2, 'degree.txt'),'w').write(str(degree))
                                     f = {'fname':fname, 'degree':degree,
-                                         'other':set([x.split('.')[0] for x in os.listdir(d2)])}
+                                         'other':set([x.split('.')[0] for x in self.listdir(d2)])}
                                     newforms.append(f)
                             degs = [f['degree'] for f in newforms]
                             if None in degs:
@@ -369,9 +453,8 @@ class FilenamesMFDB(Filenames):
                 if g[0](-1) == sgn and g[0].order()==2:
                     self.compute_ambient_space(N,k,j)
             return
-
         filename = self.ambient(N, k, i)
-        if os.path.exists(filename):
+        if self.path_exists(filename):
             return
 
         eps = character(N, i)
@@ -454,7 +537,7 @@ class FilenamesMFDB(Filenames):
         N = M.level()
         k = M.weight()
         fname = self.ambient(N, k, i, makedir=True)
-        if os.path.exists(fname):
+        if self.path_exists(fname):
             print "%s already exists; not recreating"%fname
             return 
         print "Creating ", fname
@@ -468,10 +551,10 @@ class FilenamesMFDB(Filenames):
 
     def convert_all_M_to_ambient(self):
         d = self._data
-        for X in os.listdir(d):
-            p = os.path.join(d, X)
-            if os.path.isdir(p):
-                f = set(os.listdir(p))
+        for X in self.listdir(d):
+            p = self.make_path_name(d, X)
+            if self._db.isdir(p):
+                f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' not in f:
                     print X
                     try:
@@ -481,26 +564,25 @@ class FilenamesMFDB(Filenames):
 
     def delete_all_M_after_conversion(self):
         d = self._data
-        for X in os.listdir(d):
-            p = os.path.join(d, X)
-            if os.path.isdir(p):
-                f = set(os.listdir(p))
+        for X in self.listdir(d):
+            p = self.make_path_name(d, X)
+            if self._db.isdir(p):
+                f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' in f:
-                    print X
-                    os.unlink(os.path.join(p, 'M.sobj'))
+                    print "Remove: \n ",X                    
+                    self.delete_file(self.make_path_name(p, 'M.sobj'))
 
-
-    # old version -- doesn't require trac 12779.
+     # old version -- doesn't require trac 12779.
     #def load_ambient_space(N, k, i):
     #    return load(filenames.M(N, k, i, makedir=False))
 
     def load_ambient_space(self,N, k, i):
         fname = self.ambient(N, k, i, makedir=False)
         print "fname=",fname
-        if os.path.exists(fname):
+        if self.path_exists(fname):
             return self.dict_to_ambient(load(fname))
         fname = self.M(N, k, i, makedir=False)
-        if os.path.exists(fname):
+        if self.path_exists(fname):
             return load(fname)
         raise ValueError, "ambient space (%s,%s,%s) not yet computed"%(N,k,i)
 
@@ -509,7 +591,7 @@ class FilenamesMFDB(Filenames):
         if M is None:
             M = self.load_ambient_space(N, k, i)
         f = self.factor(N, k, i, d, makedir=False)
-        if not os.path.exists(f):
+        if not self.path_exists(f):
             raise RuntimeError, "no such factor (%s,%s,%s,%s)"%(N,k,i,d)
         B = load(self.factor_basis_matrix(N, k, i, d))
         Bd = load(self.factor_dual_basis_matrix(N, k, i, d))
@@ -532,16 +614,20 @@ class ComputeMFData(object):
     r"""
     Use Williams methods to compute tables of modular forms data
     """
-    def __init__(self,db):
+    def __init__(self,db,compute_ambient=False):
+        r"""
+        compute_ambient = True if you want to compute ambient spaces when missing
+        """
         if isinstance(db,str):
             db = FilenamesMFDB(db)
+        self._compute_ambient = compute_ambient
         self._db = db  ## Should be instance of, e.g. FilenamesMFDB
         self._collection = self._db
     # decompositions
     def compute_ambient_space(self,N,k,i):
         self._db.compute_ambient_space(N,k,i)
 
-    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
+    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu=1):
         @parallel(ncpu)
         def f(N,k,i):
             self.compute_ambient_space(N,k,i)
@@ -569,17 +655,17 @@ class ComputeMFData(object):
                     self.compute_decompositions(N,k,j)
             return
 
-        filename = self._db.ambient(N, k, i)
-        if not os.path.exists(filename):
-            print "Ambient space (%s,%s,%s) not computed."%(N,k,i)
+        filename = self._db.ambient(N, k, i)        
+        if not self._db.path_exists(filename):
+            print "Ambient space ({0},{1},{2}) not computed. filename={3}".format(N,k,i,filename)
             #return
             self.compute_ambient_space(N, k, i)
-        if not os.path.exists(filename):
+        if not self._db.path_exists(filename):
             return 
 
         eps = DirichletGroup(N).galois_orbits()[i][0]
-
-        if os.path.exists(self._db.factor(N, k, i, 0, makedir=False)):
+        # check if the factor already exists
+        if self._db.path_exists(self._db.factor(N, k, i, 0, makedir=False)):
             return
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
@@ -589,7 +675,7 @@ class ComputeMFData(object):
         
         for d in range(len(D)):
             f = self._db.factor_basis_matrix(N, k, i, d)
-            if os.path.exists(f):
+            if self._db.path_exists(f):
                 continue
             A = D[d]
             B  = A.free_module().basis_matrix()
@@ -626,7 +712,7 @@ class ComputeMFData(object):
     @fork    
     def compute_atkin_lehner(self,N, k, i):
         filename = self_db.ambient(N, k, i)
-        if not os.path.exists(filename):
+        if not self._db.path_exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
             return -1
             #compute_ambient_space(N, k, i)
@@ -636,7 +722,7 @@ class ComputeMFData(object):
         M = self._db.load_ambient_space(N, k, i)
         for d in range(m):
             atkin_lehner_file = self._mfdb.factor_atkin_lehner(N, k, i, d, False)
-            if os.path.exists(atkin_lehner_file):
+            if self._db.path_exists(atkin_lehner_file):
                 print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
                 # already done
                 continue
@@ -675,23 +761,24 @@ class ComputeMFData(object):
             args = (100, )
 
         filename = self._db.ambient(N, k, i)
-        if not os.path.exists(filename):
-            print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
+        if not self._db.path_exists(filename):
+            print "Ambient ({0},{1},{2}) space not computed. Filename:{3}".format(N,k,i,filename)
             return -1
             #compute_ambient_space(N, k, i)
 
         print "computing aplists for (%s,%s,%s)"%(N,k,i)
 
         m = self._db.number_of_known_factors(N, k, i)
-
+        print "m=",m
         if m == 0:
             # nothing to do
             return
 
         M = self._db.load_ambient_space(N, k, i)
+        print "M,m=",M,m
         for d in range(m):
             aplist_file = self._db.factor_aplist(N, k, i, d, False, *args)
-            if os.path.exists(aplist_file):
+            if self._db.path_exists(aplist_file):
                 print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
                 # already done
                 continue
