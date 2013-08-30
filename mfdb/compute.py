@@ -263,7 +263,7 @@ class Filenames(object):
     def update_known_db(self):
         # 1. create the sqlite3 database
         # Unlink is only necessary with loal files
-        if self.os.path.exists(self._known_db_file):
+        if os.path.exists(self._known_db_file):
             os.unlink(self._known_db_file)
         db = sqlite3.connect(self._known_db_file)
         cursor = db.cursor()
