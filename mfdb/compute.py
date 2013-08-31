@@ -666,8 +666,8 @@ class ComputeMFData(object):
         eps = DirichletGroup(N).galois_orbits()[i][0]
         # check if the factor already exists by checking for 
         if verbose>0:
-            print "check if path exists {0}".format(self._db.factor_eigen_nonzero(N, k, i, d))
-        if self._db.path_exists(self._db.factor_eigen_nonzero(N, k, i, d)):
+            print "check if path exists {0}".format(self._db.factor_eigen_nonzero(N, k, i, 0))
+        if self._db.path_exists(self._db.factor_eigen_nonzero(N, k, i, 0)):
             return
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
