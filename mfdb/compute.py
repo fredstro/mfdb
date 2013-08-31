@@ -638,7 +638,7 @@ class ComputeMFData(object):
    
        
     @fork    
-    def compute_decompositions(self,N, k, i):
+    def compute_decompositions(self,N, k, i,verbose=0):
         if i == 'all':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
@@ -665,6 +665,8 @@ class ComputeMFData(object):
 
         eps = DirichletGroup(N).galois_orbits()[i][0]
         # check if the factor already exists by checking for 
+        if verbose>0:
+            print "check if path exists {0}".format(self._db.factor_eigen_nonzero(N, k, i, d))
         if self._db.path_exists(self._db.factor_eigen_nonzero(N, k, i, d)):
             return
         t = cputime()
