@@ -694,10 +694,10 @@ class ComputeMFData(object):
         meta = {'cputime':tm, 'number':len(D), 'version':version()}
         save(meta, self._db.decomp_meta(N, k, i))
 
-    def compute_decomposition_ranges(self,Nrange, krange, irange, ncpu):
+    def compute_decomposition_ranges(self,Nrange, krange, irange, ncpu,verbose=0):
         @parallel(ncpu)
         def f(N,k,i):
-            self.compute_decompositions(N,k,i)
+            self.compute_decompositions(N,k,i,verbose=verbose)
 
         v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
         for X in f(v):
