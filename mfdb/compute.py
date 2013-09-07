@@ -85,7 +85,7 @@ from stat import S_ISDIR
 
     
 class Filenames(object):
-    def __init__(self, data,host='',username=''):
+    def __init__(self, data,host='',db_file='',username=''):
         r"""
         If host is left empty we work with local files, otherwise via SFTP 
         """
@@ -100,7 +100,9 @@ class Filenames(object):
         if not self.path_exists(data):
             raise RuntimeError, "please create the data directory '%s'"%data
         self._data = data
-        if self._host=='':
+        if db_file <> '':
+            self._known_db_file = db_file
+        elif self._host=='':
             self._known_db_file = os.path.join(self._data, 'known.sqlite3')
         else:
             self._known_db_file = "{0}:{1}/known.sqlite3".format(host,data)
