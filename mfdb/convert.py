@@ -40,12 +40,19 @@ class WDB(object):
     r"""
     Handles Williams database
     """
-    def __init__(self,dir='data'):
+    def __init__(self,dir='data',dir2='',update=False,**kwds):
         #self._mfdb = mfdb
         #self._compute = mfdb.compute
         self._db = FilenamesMFDB(dir)
+        self._db2 = None
+        if update==True:
+            self.update()
+        if dir2<>'':
+            print "Initing a second database at {0}".format(dir2)
+            self._db2 = FilenamesMFDB(dir2) ## Can be readonly.
+    def update(self):
         self._db.update_known_db()
-        
+            
     def _is_valid_sql(self):
         raise NotImplementedError
         
@@ -156,6 +163,7 @@ class WDB(object):
         l = self._db.known(q)
         res = {}
         rb = "[0-9][0-9][0-9][0-9][0-9]"
+        print "l=",l
         for N,k,i,numorbits,aps in l:
             #print N,k,i,numorbits,aps
             #res[(N,k,i)]={}
@@ -166,7 +174,7 @@ class WDB(object):
                 v = compute.load(self._db.factor_dual_eigenvector(N,k,i,j,makedir=False))
                 cdir = self._db.factor(N,k,i,j)
                 print "cdir=",cdir
-                s = '{dir}/aplist-*{rb}.sobj'.format(dir=cdir,rb=rb)
+                s = '{dir}/aplist-*{{rb}}.sobj'.format(dir=cdir,rb=rb)
                 print "glob_Str=",s
                 list_of_files = glob.glob(s)
                 print "list=",list_of_files
