@@ -204,6 +204,16 @@ class Filenames(object):
 
     def factor_atkin_lehner(self, N, k, i, d, makedir):
         return self.make_path_name(self.factor(N,k,i,d,makedir), 'atkin_lehner.txt')
+
+    def known_levels(self):
+        res = []
+        for Nki in self.listdir(self._data):
+            z = Nki.split('-')
+            if len(z) == 3:
+                N, k, i = parse_Nki(Nki)
+                if N not in res:
+                    res.append(N)
+        return res
     
     def meta(self, filename):
         base, ext = os.path.splitext(filename)
@@ -580,7 +590,7 @@ class FilenamesMFDB(Filenames):
 
     def load_ambient_space(self,N, k, i):
         fname = self.ambient(N, k, i, makedir=False)
-        print "fname=",fname
+        #print "fname=",fname
         if self.path_exists(fname):
             return self.dict_to_ambient(load(fname))
         fname = self.M(N, k, i, makedir=False)
