@@ -63,7 +63,7 @@ def character_to_int(eps):
 def character(N, i):
     if i==0:
         return trivial_character(N)
-    print "character(%s, %s)"%(N,i)
+    #print "character(%s, %s)"%(N,i)
     return characters(N)[i]
 
 def parse_Nki(s):
@@ -160,22 +160,22 @@ class Filenames(object):
     def space_name(self, N, k, i):
         return '%05d-%03d-%03d'%(N,k,i)
     
-    def space(self, N, k, i, makedir=True):
+    def space(self, N, k, i, makedir=False):
         f = self.make_path_name(self.space_name(N,k,i))
         if makedir and not self.path_exists(f):
             self.makedirs(f)
         return f
 
-    def M(self, N, k, i, makedir=True):
+    def M(self, N, k, i, makedir=False):
         return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
 
-    def ambient(self, N, k, i, makedir=True):
+    def ambient(self, N, k, i, makedir=False):
         return self.make_path_name(self.space(N,k,i,makedir=makedir), 'ambient.sobj')
 
     def decomp_meta(self, N, k, i):
         return self.make_path_name(self.space(N,k,i), 'decomp-meta.sobj')
     
-    def factor(self, N, k, i, d, makedir=True):
+    def factor(self, N, k, i, d, makedir=False):
         f = self.make_path_name(self.space(N,k,i,makedir), '%03d'%d)
         if makedir and not self.path_exists(f):
             self.makedirs(f)
@@ -243,7 +243,7 @@ class Filenames(object):
                     # maybe nothing computed?
                     if i == 0:
                         # program around a bug in dimension_new_cusp_forms: Trac 12640
-                        d = dimension_new_cusp_forms(N)
+                        d = dimension_new_cusp_forms(N,k)
                     else:
                         chi = character(N, i)
                         d = dimension_new_cusp_forms(chi, k)
@@ -654,40 +654,44 @@ class ComputeMFData(object):
         if i == 'all':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
+            numo = 0
             for j, g in enumerate(G):
                 if g[0](-1) == sgn:
-                    self.compute_decompositions(N,k,j)
-            return
+                    numo+=self.compute_decompositions(N,k,j)
+            return numo
 
         if i == 'quadratic':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
+            numo = 0
             for j, g in enumerate(G):
                 if g[0](-1) == sgn and g[0].order()==2:
-                    self.compute_decompositions(N,k,j)
-            return
+                    num0+=self.compute_decompositions(N,k,j)
+            return numo
 
         filename = self._db.ambient(N, k, i)        
+        print "filename=",filename
         if not self._db.path_exists(filename):
             print "Ambient space ({0},{1},{2}) not computed. filename={3}".format(N,k,i,filename)
             #return
             self.compute_ambient_space(N, k, i)
         if not self._db.path_exists(filename):
-            return 
-
+            return 0
         eps = DirichletGroup(N).galois_orbits()[i][0]
         # check if the factor already exists by checking for 
         if verbose>0:
             print "check if path exists {0}".format(self._db.factor_eigen_nonzero(N, k, i, 0))
         if self._db.path_exists(self._db.factor_eigen_nonzero(N, k, i, 0)):
-            return
+            return db.number_of_known_factors(N,k,i) 
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
         if verbose>0:
             print "M=",M
         D = M.cuspidal_subspace().new_subspace().decomposition()
-        
+        if verbose>0:
+            print "D=",D
         for d in range(len(D)):
+            self._db.factor(N,k,i,d,makedir=True)
             f = self._db.factor_basis_matrix(N, k, i, d)
             if self._db.path_exists(f):
                 continue
@@ -696,8 +700,8 @@ class ComputeMFData(object):
             Bd = A.dual_free_module().basis_matrix()
             v  = A.dual_eigenvector(names='a', lift=False)    # vector over number field
             nz = A._eigen_nonzero()
-
-            save(B, self._db.factor_basis_matrix(N, k, i, d))
+            name = self._db.factor_basis_matrix(N, k, i, d)
+            save(B, name)
             save(Bd, self._db.factor_dual_basis_matrix(N, k, i, d))
             save(v, self._db.factor_dual_eigenvector(N, k, i, d))
             save(nz, self._db.factor_eigen_nonzero(N, k, i, d))
@@ -705,7 +709,8 @@ class ComputeMFData(object):
         tm = cputime(t)
         meta = {'cputime':tm, 'number':len(D), 'version':version()}
         save(meta, self._db.decomp_meta(N, k, i))
-
+        return len(D)
+    
     def compute_decomposition_ranges(self,Nrange, krange, irange, ncpu,verbose=0):
         @parallel(ncpu)
         def f(N,k,i):
