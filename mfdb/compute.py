@@ -682,7 +682,7 @@ class ComputeMFData(object):
         if verbose>0:
             print "check if path exists {0}".format(self._db.factor_eigen_nonzero(N, k, i, 0))
         if self._db.path_exists(self._db.factor_eigen_nonzero(N, k, i, 0)):
-            return db.number_of_known_factors(N,k,i) 
+            return self._db.number_of_known_factors(N,k,i) 
         t = cputime()
         M = self._db.load_ambient_space(N, k, i)
         if verbose>0:
