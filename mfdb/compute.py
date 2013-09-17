@@ -13,7 +13,7 @@ import nosqlite
 import paramiko
 #nsql = nosqlite.Client('nsql')
 verbose = 0
-
+import sage
 from sage.all import (ModularSymbols, DirichletGroup, trivial_character,
                       dimension_new_cusp_forms,
                       save, load,
@@ -475,7 +475,7 @@ class FilenamesMFDB(Filenames):
         tm = cputime(t)
         self.save_ambient_space(M,i)
         #save(M, filename)
-        meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':version()}
+        meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':sage.version.version}
         save(meta, self.meta(filename))
         print "save {0} to {1}".format(meta,filename)
 
@@ -605,10 +605,13 @@ class FilenamesMFDB(Filenames):
         f = self.factor(N, k, i, d, makedir=False)
         if not self.path_exists(f):
             raise RuntimeError, "no such factor (%s,%s,%s,%s)"%(N,k,i,d)
-        B = load(self.factor_basis_matrix(N, k, i, d))
-        Bd = load(self.factor_dual_basis_matrix(N, k, i, d))
-        v = load(self.factor_dual_eigenvector(N, k, i, d))
-        nz = load(self.factor_eigen_nonzero(N, k, i, d))
+        try:
+            B = load(self.factor_basis_matrix(N, k, i, d))
+            Bd = load(self.factor_dual_basis_matrix(N, k, i, d))
+            v = load(self.factor_dual_eigenvector(N, k, i, d))
+            nz = load(self.factor_eigen_nonzero(N, k, i, d))
+        except IOError:
+            raise RuntimeError,"Data is incomplete for factor ({0}) at {1}".format((N,k,i,d),f)
         B._cache['in_echelon_form'] = True
         Bd._cache['in_echelon_form'] = True
         # These two lines are scary, obviously, since they depend on
@@ -619,7 +622,51 @@ class FilenamesMFDB(Filenames):
         A._HeckeModule_free_module__decomposition = {(None,True):Sequence([A], check=False)}
         return A
 
+    def load_aps(self,N, k, i, d, ambient=None,numc=-1):
+        r"""
+        Load aps for a given factor. If numc > 0 we return all sets.
+        """
+        import sage.modular.modsym.subspace
+        F = self.load_factor(N, k, i, d, ambient)
+        factor_dir = self.factor(N, k, i, d, makedir=False)
+        try:
+            tmp = self.listdir(factor_dir)
+        except OSError:
+            return 
+        aplist_files = []; aplist_meta_files = []
+        for fname in tmp:
+            if "aplist" in fname:
+                if "meta" in fname:
+                    numap = int(fname.split("-")[1])
+                    aplist_meta_files.append((numap,fname))
+                else:
+                    numap = int(fname.split("-")[1].split(".")[0])
+                    aplist_files.append((numap,fname))
+        print "aplist_files=",aplist_files
+        print "aplist_meta_files=",aplist_meta_files        
+        if aplist_files == []:
+            return 
+        if numc == 'max' or numc == -1: # Find max no. of coeffs.
+            numap,fname = max(aplist_files)
+        elif numc == 'min' or numc == 0: # Find min. no. of coeffs.
+            numap,fname = min(aplist_files)
+        else:
+            numap,fname = aplist_files[0]
+            for n,c in aplist_files[1:]:
+                if c == numc:
+                    numap,fname = n,c
+                    break
+        metaname = fname.split(".")[0]+"-meta.sobj"
+        try:
+            E = load("{0}/{1}".format(factor_dir,fname))
+            v = load("{0}/v.sobj".format(factor_dir))
+            meta = load("{0}/{1}".format(factor_dir,metaname))
+        except Exception as e:
+            raise ValueError,"Could not load factor: {0}".format(e.message)
+        
+        return E,v,meta
 
+    
  
 
 class ComputeMFData(object):
@@ -707,7 +754,7 @@ class ComputeMFData(object):
             save(nz, self._db.factor_eigen_nonzero(N, k, i, d))
 
         tm = cputime(t)
-        meta = {'cputime':tm, 'number':len(D), 'version':version()}
+        meta = {'cputime':tm, 'number':len(D), 'version':sage.version.version}
         save(meta, self._db.decomp_meta(N, k, i))
         return len(D)
     
@@ -754,7 +801,7 @@ class ComputeMFData(object):
             print al
             open(atkin_lehner_file, 'w').write(al)
             tm = cputime(t)
-            meta = {'cputime':tm, 'version':version()}
+            meta = {'cputime':tm, 'version':sage.version.version}
             save(meta, self._db.meta(atkin_lehner_file))
 
     # aplists
@@ -810,7 +857,7 @@ class ComputeMFData(object):
             print aplist, aplist_file
             save(aplist, aplist_file)
             tm = cputime(t)
-            meta = {'cputime':tm, 'version':version()}
+            meta = {'cputime':tm, 'version':sage.version.version}
             save(meta, self._db.meta(aplist_file))
 
     def compute_aplists_ranges(self,Nrange, krange, irange, ncpu, *args):
