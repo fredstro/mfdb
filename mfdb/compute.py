@@ -449,7 +449,7 @@ class FilenamesMFDB(Filenames):
 
 
     @fork    
-    def compute_ambient_space(self,N, k, i):
+    def compute_ambient_space(self,N, k, i, Modsym = None, time = None):
         if i == 'all':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
@@ -468,11 +468,14 @@ class FilenamesMFDB(Filenames):
         filename = self.ambient(N, k, i)
         if self.path_exists(filename):
             return
-
-        eps = character(N, i)
-        t = cputime()
-        M = ModularSymbols(eps, weight=k, sign=1)
-        tm = cputime(t)
+        if Modsym <> None:
+            M = Modsym
+            tm = time
+        else:
+            eps = character(N, i)
+            t = cputime()
+            M = ModularSymbols(eps, weight=k, sign=1)
+            tm = cputime(t)
         self.save_ambient_space(M,i)
         #save(M, filename)
         meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':sage.version.version}
