@@ -10,7 +10,11 @@ import sqlite3
 import nosqlite
 # Use SFTP via paramiko to work with files remotely
 # (since some of the HPC systems has ridiculously low quotas)
-import paramiko
+try: 
+    import paramiko
+except ImportError:
+    print "Note that remote files are not supported without paramiko installed!"
+
 #nsql = nosqlite.Client('nsql')
 verbose = 0
 import sage
@@ -93,7 +97,10 @@ class Filenames(object):
         self._sftp = None
         self._ssh = None
         if self._host <> '':
-            self._ssh = paramiko.SSHClient() 
+            try:
+                self._ssh = paramiko.SSHClient()
+            except ImportError:
+                raise ValueError,"If paramiko is not installed you must use local files! You set host:{0}".format(self._host)
             self._ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
             self._ssh.connect(self._host, username=username, password='')
             self._sftp = self._ssh.open_sftp()
@@ -265,7 +272,8 @@ class Filenames(object):
                                 this_maxp = max(this_maxp, max(args))
                         if len(v) != len(prime_range(this_maxp)):
                             # something missing!
-                            print "data ranges are missing in the aplist data for %s"%Nki
+                            if verbose>0:
+                                print "data ranges are missing in the aplist data for %s"%Nki
                             maxp = 100
                         else:
                             maxp = this_maxp if maxp is None else min(this_maxp, maxp)
@@ -720,7 +728,8 @@ class ComputeMFData(object):
             return numo
 
         filename = self._db.ambient(N, k, i)        
-        print "filename=",filename
+        if verbose>0:
+            print "filename=",filename
         if not self._db.path_exists(filename):
             print "Ambient space ({0},{1},{2}) not computed. filename={3}".format(N,k,i,filename)
             #return
@@ -785,8 +794,8 @@ class ComputeMFData(object):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
             return -1
             #compute_ambient_space(N, k, i)
-
-        print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
+        if verbose>0:
+            print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
         m = self._db.number_of_known_factors(N, k, i)    
         M = self._db.load_ambient_space(N, k, i)
         for d in range(m):
@@ -797,7 +806,8 @@ class ComputeMFData(object):
                 continue
 
             # compute atkin_lehner
-            print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
+            if verbose>0:
+                print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
             t = cputime()
             A = self._db.load_factor(N, k, i, d, M)
             al = ' '.join(['+' if a > 0 else '-' for a in atkin_lehner_signs(A)])
@@ -834,26 +844,30 @@ class ComputeMFData(object):
             print "Ambient ({0},{1},{2}) space not computed. Filename:{3}".format(N,k,i,filename)
             return -1
             #compute_ambient_space(N, k, i)
-
-        print "computing aplists for (%s,%s,%s)"%(N,k,i)
+        if verbose>0:
+            print "computing aplists for (%s,%s,%s)"%(N,k,i)
 
         m = self._db.number_of_known_factors(N, k, i)
-        print "m=",m
+        if verbose>0:
+            print "m=",m
         if m == 0:
             # nothing to do
             return
 
         M = self._db.load_ambient_space(N, k, i)
-        print "M,m=",M,m
+        if verbose>0:
+            print "M,m=",M,m
         for d in range(m):
             aplist_file = self._db.factor_aplist(N, k, i, d, False, *args)
             if self._db.path_exists(aplist_file):
-                print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
+                if verbose>0:
+                    print "skipping computing aplist(%s) for (%s,%s,%s,%s) since it already exists"%(args, N,k,i,d)
                 # already done
                 continue
 
             # compute aplist
-            print "computing aplist(%s) for (%s,%s,%s,%s)"%(args, N,k,i,d)
+            if verbose>0:
+                print "computing aplist(%s) for (%s,%s,%s,%s)"%(args, N,k,i,d)
             t = cputime()
             A = self._db.load_factor(N, k, i, d, M)
             aplist, _ = A.compact_system_of_eigenvalues(prime_range(*args), 'a')
