@@ -14,6 +14,7 @@ import paramiko
 #nsql = nosqlite.Client('nsql')
 verbose = 0
 import sage
+from sage.modular.modsym.space import is_ModularSymbolsSpace
 from sage.all import (ModularSymbols, DirichletGroup, trivial_character,
                       dimension_new_cusp_forms,
                       save, load,
@@ -449,13 +450,13 @@ class FilenamesMFDB(Filenames):
 
 
     @fork    
-    def compute_ambient_space(self,N, k, i):
+    def compute_ambient_space(self,N, k, i,**kwds):
         if i == 'all':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
             for j, g in enumerate(G):
                 if g[0](-1) == sgn:
-                    self.compute_ambient_space(N,k,j)
+                    self.compute_ambient_space(N,k,j,**kwds)
             return
 
         if i == 'quadratic':
@@ -463,7 +464,7 @@ class FilenamesMFDB(Filenames):
             sgn = (-1)**k
             for j, g in enumerate(G):
                 if g[0](-1) == sgn and g[0].order()==2:
-                    self.compute_ambient_space(N,k,j)
+                    self.compute_ambient_space(N,k,j,**kwds)
             return
         filename = self.ambient(N, k, i)
         if self.path_exists(filename):
@@ -471,7 +472,9 @@ class FilenamesMFDB(Filenames):
 
         eps = character(N, i)
         t = cputime()
-        M = ModularSymbols(eps, weight=k, sign=1)
+        M = kwds.get('M',None)
+        if M ==  None or M.sign()<>N or M.weight()<>k or M.level()<>N or M.character()<> eps or not is_ModularSymbolsSpace(M):
+            M = ModularSymbols(eps, weight=k, sign=1)
         tm = cputime(t)
         self.save_ambient_space(M,i)
         #save(M, filename)
@@ -479,10 +482,10 @@ class FilenamesMFDB(Filenames):
         save(meta, self.meta(filename))
         print "save {0} to {1}".format(meta,filename)
 
-    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu):
+    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu,**kwds):
         @parallel(ncpu)
         def f(N,k,i):
-            self.compute_ambient_space(N,k,i)
+            self.compute_ambient_space(N,k,i,**kwds)
 
         v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
         for X in f(v):
@@ -683,13 +686,13 @@ class ComputeMFData(object):
         self._db = db  ## Should be instance of, e.g. FilenamesMFDB
         self._collection = self._db
     # decompositions
-    def compute_ambient_space(self,N,k,i):
-        self._db.compute_ambient_space(N,k,i)
+    def compute_ambient_space(self,N,k,i,**kwds):
+        self._db.compute_ambient_space(N,k,i,**kwds)
 
-    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu=1):
+    def compute_ambient_spaces(self,Nrange, krange, irange, ncpu=1,**kwds):
         @parallel(ncpu)
         def f(N,k,i):
-            self.compute_ambient_space(N,k,i)
+            self.compute_ambient_space(N,k,i,**kwds)
 
         v = [(N,k,i) for N in rangify(Nrange) for k in rangify(krange) for i in rangify(irange)]
         for X in f(v):
@@ -697,7 +700,7 @@ class ComputeMFData(object):
    
        
     @fork    
-    def compute_decompositions(self,N, k, i,verbose=0):
+    def compute_decompositions(self,N, k, i,verbose=0,**kwds):
         if i == 'all':
             G = DirichletGroup(N).galois_orbits()
             sgn = (-1)**k
@@ -721,7 +724,7 @@ class ComputeMFData(object):
         if not self._db.path_exists(filename):
             print "Ambient space ({0},{1},{2}) not computed. filename={3}".format(N,k,i,filename)
             #return
-            self.compute_ambient_space(N, k, i)
+            self.compute_ambient_space(N, k, i,**kwds)
         if not self._db.path_exists(filename):
             return 0
         eps = DirichletGroup(N).galois_orbits()[i][0]
