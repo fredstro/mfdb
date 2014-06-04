@@ -490,7 +490,8 @@ class FilenamesMFDB(Filenames):
         #save(M, filename)
         meta = {'cputime':tm, 'dim':M.dimension(), 'M':str(M), 'version':sage.version.version}
         save(meta, self.meta(filename))
-        print "save {0} to {1}".format(meta,filename)
+        if verbose>0:
+            print "save {0} to {1}".format(meta,filename)
 
     def compute_ambient_spaces(self,Nrange, krange, irange, ncpu,**kwds):
         @parallel(ncpu)
@@ -887,7 +888,8 @@ class ComputeMFData(object):
             save(aplist, aplist_file)
             tm = cputime(t)
             meta = {'cputime':tm, 'version':sage.version.version}
-            print "meta=",meta
+            if verbose>0:
+                print "meta=",meta
             save(meta, self._db.meta(aplist_file))
 
     def compute_aplists_ranges(self,Nrange, krange, irange, ncpu, *args):
