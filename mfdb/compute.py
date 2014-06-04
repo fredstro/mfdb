@@ -585,7 +585,7 @@ class FilenamesMFDB(Filenames):
         d = self._data
         for X in self.listdir(d):
             p = self.make_path_name(d, X)
-            if self._db.isdir(p):
+            if self..isdir(p):
                 f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' not in f:
                     print X
