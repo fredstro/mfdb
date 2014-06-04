@@ -16,7 +16,7 @@ except ImportError:
     print "Note that remote files are not supported without paramiko installed!"
 
 #nsql = nosqlite.Client('nsql')
-verbose = 0
+verbose = 1
 import sage
 from sage.modular.modsym.space import is_ModularSymbolsSpace
 from sage.all import (ModularSymbols, DirichletGroup, trivial_character,
@@ -790,23 +790,24 @@ class ComputeMFData(object):
             print X
     # atkin_lehner
     @fork    
-    def compute_atkin_lehner(self,N, k, i):
-        filename = self_db.ambient(N, k, i)
+    def compute_atkin_lehner(self,N, k, i,M=None,m=None):
+        filename = self._db.ambient(N, k, i)
         if not self._db.path_exists(filename):
             print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
             return -1
             #compute_ambient_space(N, k, i)
         if verbose>0:
             print "computing atkin-lehner for (%s,%s,%s)"%(N,k,i)
-        m = self._db.number_of_known_factors(N, k, i)    
-        M = self._db.load_ambient_space(N, k, i)
+        if m is None:
+            m = self._db.number_of_known_factors(N, k, i)
+        if M is None:
+            M = self._db.load_ambient_space(N, k, i)
         for d in range(m):
-            atkin_lehner_file = self._mfdb.factor_atkin_lehner(N, k, i, d, False)
+            atkin_lehner_file = self._db.factor_atkin_lehner(N, k, i, d, False)
             if self._db.path_exists(atkin_lehner_file):
                 print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
                 # already done
                 continue
-
             # compute atkin_lehner
             if verbose>0:
                 print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
