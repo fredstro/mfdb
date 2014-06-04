@@ -589,10 +589,10 @@ class FilenamesMFDB(Filenames):
                 f = set(self.listdir(p))
                 if 'M.sobj' in f and 'ambient.sobj' not in f:
                     print X
-                    try:
-                        self.convert_M_to_ambient(*parse_Nki(X))
-                    except:
-                        print "ERROR!"
+                    #try:
+                    self.convert_M_to_ambient(*parse_Nki(X))
+                    #except:
+                    #    print "ERROR!"
 
     def delete_all_M_after_conversion(self):
         d = self._data
