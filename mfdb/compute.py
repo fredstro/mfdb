@@ -579,7 +579,7 @@ class FilenamesMFDB(Filenames):
         return load(self.M(N, k, i, makedir=False))
 
     def convert_M_to_ambient(self,N, k, i):
-        self.save_ambient_space(load_M(N,k,i), i)
+        self.save_ambient_space(self.load_M(N,k,i), i)
 
     def convert_all_M_to_ambient(self):
         d = self._data
