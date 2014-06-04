@@ -16,7 +16,7 @@ except ImportError:
     print "Note that remote files are not supported without paramiko installed!"
 
 #nsql = nosqlite.Client('nsql')
-verbose = 1
+verbose = 0
 import sage
 from sage.modular.modsym.space import is_ModularSymbolsSpace
 from sage.all import (ModularSymbols, DirichletGroup, trivial_character,
@@ -178,7 +178,7 @@ class Filenames(object):
         return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
 
     def ambient(self, N, k, i, makedir=False):
-        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
+        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'ambient.sobj')
 
     def decomp_meta(self, N, k, i):
         return self.make_path_name(self.space(N,k,i), 'decomp-meta.sobj')
@@ -564,8 +564,15 @@ class FilenamesMFDB(Filenames):
         fname = self.ambient(N, k, i, makedir=True)
         if self.path_exists(fname):
             print "%s already exists; not recreating"%fname
-            return 
-        print "Creating ", fname
+            return
+#        fnameM = self.M(N, k, i, makedir=True)
+#        if self.path_exists(fname):
+#            print "%s already exists; not recreating"%fnameM
+#            M = load(fnameM)
+#            save(M,fname)
+#            return
+        if verbose>0:
+            print "Creating ", fname
         save(self.ambient_to_dict(M, i), fname)
 
     def load_M(self,N, k, i):
@@ -606,7 +613,7 @@ class FilenamesMFDB(Filenames):
         #print "fname=",fname
         if self.path_exists(fname):
             return self.dict_to_ambient(load(fname))
-        fname = self.M(N, k, i, makedir=False)
+        fname = self.ambient(N, k, i, makedir=False)
         if self.path_exists(fname):
             return load(fname)
         raise ValueError, "ambient space (%s,%s,%s) not yet computed"%(N,k,i)
@@ -806,7 +813,8 @@ class ComputeMFData(object):
         for d in range(m):
             atkin_lehner_file = self._db.factor_atkin_lehner(N, k, i, d, False)
             if self._db.path_exists(atkin_lehner_file):
-                print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
+                if verbose>0:
+                    print "skipping computing atkin_lehner for (%s,%s,%s,%s) since it already exists"%(N,k,i,d)
                 # already done
                 continue
             # compute atkin_lehner
