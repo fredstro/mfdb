@@ -178,7 +178,7 @@ class Filenames(object):
         return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
 
     def ambient(self, N, k, i, makedir=False):
-        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'ambient.sobj')
+        return self.make_path_name(self.space(N,k,i,makedir=makedir), 'M.sobj')
 
     def decomp_meta(self, N, k, i):
         return self.make_path_name(self.space(N,k,i), 'decomp-meta.sobj')
@@ -794,7 +794,7 @@ class ComputeMFData(object):
     def compute_atkin_lehner(self,N, k, i,M=None,m=None):
         filename = self._db.ambient(N, k, i)
         if not self._db.path_exists(filename):
-            print "Ambient (%s,%s,%s) space not computed."%(N,k,i)
+            print "Ambient (%s,%s,%s) space not computed. Filename=%s "%(N,k,i,filename)
             return -1
             #compute_ambient_space(N, k, i)
         if verbose>0:
