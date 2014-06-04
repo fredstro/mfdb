@@ -655,8 +655,6 @@ class FilenamesMFDB(Filenames):
                 else:
                     numap = int(fname.split("-")[1].split(".")[0])
                     aplist_files.append((numap,fname))
-        print "aplist_files=",aplist_files
-        print "aplist_meta_files=",aplist_meta_files        
         if aplist_files == []:
             return 
         if numc == 'max' or numc == -1: # Find max no. of coeffs.
@@ -717,7 +715,7 @@ class ComputeMFData(object):
             numo = 0
             for j, g in enumerate(G):
                 if g[0](-1) == sgn:
-                    numo+=self.compute_decompositions(N,k,j)
+                    numo+=self.compute_decompositions(N,k,j,**kwds)
             return numo
 
         if i == 'quadratic':
@@ -726,7 +724,7 @@ class ComputeMFData(object):
             numo = 0
             for j, g in enumerate(G):
                 if g[0](-1) == sgn and g[0].order()==2:
-                    num0+=self.compute_decompositions(N,k,j)
+                    num0+=self.compute_decompositions(N,k,j,**kwds)
             return numo
 
         filename = self._db.ambient(N, k, i)        
@@ -748,7 +746,10 @@ class ComputeMFData(object):
         M = self._db.load_ambient_space(N, k, i)
         if verbose>0:
             print "M=",M
-        D = M.cuspidal_subspace().new_subspace().decomposition()
+        if kwds.get('D') is None:
+            D = M.cuspidal_subspace().new_subspace().decomposition()
+        else:
+            D = kwds['D']
         if verbose>0:
             print "D=",D
         for d in range(len(D)):
@@ -874,10 +875,11 @@ class ComputeMFData(object):
             t = cputime()
             A = self._db.load_factor(N, k, i, d, M)
             aplist, _ = A.compact_system_of_eigenvalues(prime_range(*args), 'a')
-            print aplist, aplist_file
+            #print aplist, aplist_file
             save(aplist, aplist_file)
             tm = cputime(t)
             meta = {'cputime':tm, 'version':sage.version.version}
+            print "meta=",meta
             save(meta, self._db.meta(aplist_file))
 
     def compute_aplists_ranges(self,Nrange, krange, irange, ncpu, *args):
