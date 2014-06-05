@@ -681,7 +681,7 @@ class FilenamesMFDB(Filenames):
             v = load("{0}/v.sobj".format(factor_dir))
             meta = load("{0}/{1}".format(factor_dir,metaname))
         except Exception as e:
-            raise ValueError,"Could not load factor: {0}".format(e.message)
+            raise ValueError,"Could not load factor: {0}. Error:{1}".format(factor_dir,e.message)
         
         return E,v,meta
 
@@ -799,7 +799,8 @@ class ComputeMFData(object):
             print X
     # atkin_lehner
     @fork    
-    def compute_atkin_lehner(self,N, k, i,M=None,m=None):
+    def compute_atkin_lehner(self,N, k, i,M=None,m=None,**kwds):
+        verbose = kwds.get('verbose',0)
         filename = self._db.ambient(N, k, i)
         if not self._db.path_exists(filename):
             print "Ambient (%s,%s,%s) space not computed. Filename=%s "%(N,k,i,filename)
