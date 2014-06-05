@@ -825,8 +825,8 @@ class ComputeMFData(object):
             t = cputime()
             A = self._db.load_factor(N, k, i, d, M)
             print "A=",A
-            "character=",A.character()
-            "character order=",A.character().order()
+            print "character=",A.character()
+            print "character order=",A.character().order()
             al = ' '.join(['+' if a > 0 else '-' for a in atkin_lehner_signs(A)])
             print al
             open(atkin_lehner_file, 'w').write(al)
