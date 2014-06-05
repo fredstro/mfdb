@@ -824,6 +824,7 @@ class ComputeMFData(object):
                 print "computing atkin_lehner for (%s,%s,%s,%s)"%(N,k,i,d)
             t = cputime()
             A = self._db.load_factor(N, k, i, d, M)
+            print "A=",A
             if verbose > 1:
                 "character=",A.character()
                 "character order=",A.character().order()
