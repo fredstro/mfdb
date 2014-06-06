@@ -828,7 +828,7 @@ class ComputeMFData(object):
             #print "character=",A.character()
             #print "character order=",A.character().order()
             al = ' '.join(['+' if a > 0 else '-' for a in atkin_lehner_signs(A)])
-            print al
+            #print al
             open(atkin_lehner_file, 'w').write(al)
             tm = cputime(t)
             meta = {'cputime':tm, 'version':sage.version.version}
